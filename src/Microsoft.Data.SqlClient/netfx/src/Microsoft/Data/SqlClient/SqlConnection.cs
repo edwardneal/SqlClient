@@ -2310,18 +2310,6 @@ namespace Microsoft.Data.SqlClient
             }
         }
 
-        internal bool Is2000
-        {
-            get
-            {
-                if (_currentReconnectionTask != null)
-                { // holds true even if task is completed
-                    return true; // if CR is enabled, connection, if established, will be 2008+
-                }
-                return GetOpenConnection().Is2000;
-            }
-        }
-
         internal bool Is2005OrNewer
         {
             get

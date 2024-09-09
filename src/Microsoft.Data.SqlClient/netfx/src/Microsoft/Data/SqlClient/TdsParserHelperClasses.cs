@@ -340,7 +340,6 @@ namespace Microsoft.Data.SqlClient
         internal byte majorVersion;
         internal byte minorVersion;
         internal short buildNum;
-        internal bool isVersion8;
         internal UInt32 tdsVersion;
     }
 

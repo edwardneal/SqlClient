@@ -745,14 +745,6 @@ namespace Microsoft.Data.SqlClient
             }
         }
 
-        override internal bool Is2000
-        {
-            get
-            {
-                return _loginAck.isVersion8;
-            }
-        }
-
         override internal bool Is2005OrNewer
         {
             get
@@ -1087,35 +1079,10 @@ namespace Microsoft.Data.SqlClient
             {
                 // Ensure we are either going against 2000, or we are not enlisted in a
                 // distributed transaction - otherwise don't reset!
-                if (Is2000)
-                {
-                    // Prepare the parser for the connection reset - the next time a trip
-                    // to the server is made.
-                    _parser.PrepareResetConnection(IsTransactionRoot && !IsNonPoolableTransactionRoot);
-                }
-                else if (!IsEnlistedInTransaction)
-                {
-                    // If not 2000, we are going against 7.0.  On 7.0, we
-                    // may only reset if not enlisted in a distributed transaction.
-                    try
-                    {
-                        // execute sp
-                        System.Threading.Tasks.Task executeTask = _parser.TdsExecuteSQLBatch("sp_reset_connection", 30, null, _parser._physicalStateObj, sync: true);
-                        Debug.Assert(executeTask == null, "Shouldn't get a task when doing sync writes");
-                        _parser.Run(RunBehavior.UntilDone, null, null, null, _parser._physicalStateObj);
-                    }
-                    catch (Exception e)
-                    {
-                        // UNDONE - should not be catching all exceptions!!!
-                        if (!ADP.IsCatchableExceptionType(e))
-                        {
-                            throw;
-                        }
+                // Prepare the parser for the connection reset - the next time a trip
+                // to the server is made.
+                _parser.PrepareResetConnection(IsTransactionRoot && !IsNonPoolableTransactionRoot);
 
-                        DoomThisConnection();
-                        ADP.TraceExceptionWithoutRethrow(e);
-                    }
-                }
 
                 // Reset hashtable values, since calling reset will not send us env_changes.
                 CurrentDatabase = _originalDatabase;

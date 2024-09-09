@@ -4345,8 +4345,6 @@ namespace Microsoft.Data.SqlClient
             _is2000SP1 |= _is2005;            // includes all lower versions
             _is2000 |= _is2000SP1;        //
 
-            a.isVersion8 = _is2000;
-
             stateObj._outBytesUsed = stateObj._outputHeaderLen;
             byte len;
             result = stateObj.TryReadByte(out len);
