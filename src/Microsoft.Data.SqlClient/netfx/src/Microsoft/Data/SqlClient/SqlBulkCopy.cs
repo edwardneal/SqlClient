@@ -112,14 +112,6 @@ namespace Microsoft.Data.SqlClient
     /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlBulkCopy.xml' path='docs/members[@name="SqlBulkCopy"]/SqlBulkCopy/*'/>
     public sealed class SqlBulkCopy : IDisposable
     {
-        private enum TableNameComponents
-        {
-            Server = 0,
-            Catalog,
-            Owner,
-            TableName,
-        }
-
         private enum ValueSourceType
         {
             Unspecified = 0,
