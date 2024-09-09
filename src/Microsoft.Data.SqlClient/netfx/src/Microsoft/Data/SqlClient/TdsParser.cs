@@ -209,10 +209,6 @@ namespace Microsoft.Data.SqlClient
         internal TdsParserSessionPool _sessionPool = null;  // initialized only when we're a MARS parser.
 
         // Version variables
-        private bool _is2000 = false; // set to true if we connect to a 8.0 server (SQL 2000) or later
-
-        private bool _is2000SP1 = false; // set to true if speaking to 2000 SP1 or later
-
         private bool _is2005 = false; // set to true if speaking to 2005 or later
 
         private bool _is2008 = false;
@@ -2026,7 +2022,6 @@ namespace Microsoft.Data.SqlClient
                         // Check again to see if we need to send reset.
 
                         Debug.Assert(!stateObj._fResetConnectionSent, "Unexpected state for sending reset connection");
-                        Debug.Assert(_is2000, "TdsParser.cs: Error!  _fResetConnection true when not going against 2000 or later!");
 
                         if (_fPreserveTransaction)
                         {
@@ -3203,7 +3198,6 @@ namespace Microsoft.Data.SqlClient
                     case TdsEnums.ENV_CHARSET:
                         // we copied this behavior directly from luxor - see charset envchange
                         // section from sqlctokn.c
-                        Debug.Assert(!_is2000, "Received ENV_CHARSET on non 7.0 server!");
                         result = TryReadTwoStringFields(env, stateObj);
                         if (result != TdsOperationStatus.Done)
                         {
@@ -4342,8 +4336,6 @@ namespace Microsoft.Data.SqlClient
             _is2012 |= _is2022;
             _is2008 |= _is2012;
             _is2005 |= _is2008;
-            _is2000SP1 |= _is2005;            // includes all lower versions
-            _is2000 |= _is2000SP1;        //
 
             stateObj._outBytesUsed = stateObj._outputHeaderLen;
             byte len;
@@ -4785,22 +4777,11 @@ namespace Microsoft.Data.SqlClient
 
             // always use the nullable type for parameters if 2000 or later
             // 7.0 sometimes sends fixed length return values
-            if (_is2000)
+            rec.tdsType = rec.metaType.NullableType;
+            rec.IsNullable = true;
+            if (tdsLen == TdsEnums.SQL_USHORTVARMAXLEN)
             {
-                rec.tdsType = rec.metaType.NullableType;
-                rec.IsNullable = true;
-                if (tdsLen == TdsEnums.SQL_USHORTVARMAXLEN)
-                {
-                    Debug.Assert(_is2005, "plp data from pre-2005 server");
-                    rec.metaType = MetaType.GetMaxMetaTypeFromMetaType(rec.metaType);
-                }
-            }
-            else
-            {      // For 7.0, keep the fixed type if that is what is returned
-                if (rec.metaType.NullableType == tdsType)
-                    rec.IsNullable = true;
-
-                rec.tdsType = (byte)tdsType;
+                rec.metaType = MetaType.GetMaxMetaTypeFromMetaType(rec.metaType);
             }
 
             if (rec.type == SqlDbType.Decimal)
@@ -4897,7 +4878,7 @@ namespace Microsoft.Data.SqlClient
 
                 }
             }
-            else if (_is2000 && rec.metaType.IsCharType)
+            else if (rec.metaType.IsCharType)
             {
                 // read the collation for 8.x servers
                 result = TryProcessCollation(stateObj, out rec.collation);
@@ -5715,12 +5696,7 @@ namespace Microsoft.Data.SqlClient
 
             col.metaType = MetaType.GetSqlDataType(tdsType, userType, col.length);
             col.type = col.metaType.SqlDbType;
-
-            // If 7.0, do not change to nullable type
-            if (_is2000)
-                col.tdsType = (col.IsNullable ? col.metaType.NullableType : col.metaType.TDSType);
-            else
-                col.tdsType = tdsType;
+            col.tdsType = (col.IsNullable ? col.metaType.NullableType : col.metaType.TDSType);
 
             if (_is2005)
             {
@@ -5853,7 +5829,7 @@ namespace Microsoft.Data.SqlClient
             }
 
             // read the collation for 7.x servers
-            if (_is2000 && col.metaType.IsCharType && (tdsType != TdsEnums.SQLXMLTYPE))
+            if (col.metaType.IsCharType && (tdsType != TdsEnums.SQLXMLTYPE))
             {
                 result = TryProcessCollation(stateObj, out col.collation);
                 if (result != TdsOperationStatus.Done)
@@ -6169,93 +6145,19 @@ namespace Microsoft.Data.SqlClient
 
             multiPartTableName = default(MultiPartTableName);
 
-            if (_is2000SP1)
+            mpt = new MultiPartTableName();
+            byte nParts;
+
+            // Find out how many parts in the TDS stream
+            TdsOperationStatus result = stateObj.TryReadByte(out nParts);
+            if (result != TdsOperationStatus.Done)
             {
-
-                mpt = new MultiPartTableName();
-                byte nParts;
-
-                // Find out how many parts in the TDS stream
-                TdsOperationStatus result = stateObj.TryReadByte(out nParts);
-                if (result != TdsOperationStatus.Done)
-                {
-                    return result;
-                }
-                length--;
-                if (nParts == 4)
-                {
-                    result = stateObj.TryReadUInt16(out tableLen);
-                    if (result != TdsOperationStatus.Done)
-                    {
-                        return result;
-                    }
-                    length -= 2;
-                    result = stateObj.TryReadString(tableLen, out value);
-                    if (result != TdsOperationStatus.Done)
-                    {
-                        return result;
-                    }
-                    mpt.ServerName = value;
-                    nParts--;
-                    length -= (tableLen * 2); // wide bytes
-                }
-                if (nParts == 3)
-                {
-                    result = stateObj.TryReadUInt16(out tableLen);
-                    if (result != TdsOperationStatus.Done)
-                    {
-                        return result;
-                    }
-                    length -= 2;
-                    result = stateObj.TryReadString(tableLen, out value);
-                    if (result != TdsOperationStatus.Done)
-                    {
-                        return result;
-                    }
-                    mpt.CatalogName = value;
-                    length -= (tableLen * 2); // wide bytes
-                    nParts--;
-                }
-                if (nParts == 2)
-                {
-                    result = stateObj.TryReadUInt16(out tableLen);
-                    if (result != TdsOperationStatus.Done)
-                    {
-                        return result;
-                    }
-                    length -= 2;
-                    result = stateObj.TryReadString(tableLen, out value);
-                    if (result != TdsOperationStatus.Done)
-                    {
-                        return result;
-                    }
-                    mpt.SchemaName = value;
-                    length -= (tableLen * 2); // wide bytes
-                    nParts--;
-                }
-                if (nParts == 1)
-                {
-                    result = stateObj.TryReadUInt16(out tableLen);
-                    if (result != TdsOperationStatus.Done)
-                    {
-                        return result;
-                    }
-                    length -= 2;
-                    result = stateObj.TryReadString(tableLen, out value);
-                    if (result != TdsOperationStatus.Done)
-                    {
-                        return result;
-                    }
-                    mpt.TableName = value;
-                    length -= (tableLen * 2); // wide bytes
-                    nParts--;
-                }
-                Debug.Assert(nParts == 0, "ProcessTableName:Unidentified parts in the table name token stream!");
-
+                return result;
             }
-            else
+            length--;
+            if (nParts == 4)
             {
-                TdsOperationStatus result = stateObj.TryReadUInt16(out tableLen);
+                result = stateObj.TryReadUInt16(out tableLen);
                 if (result != TdsOperationStatus.Done)
                 {
                     return result;
@@ -6266,10 +6168,62 @@ namespace Microsoft.Data.SqlClient
                 {
                     return result;
                 }
-                string tableName = value;
+                mpt.ServerName = value;
+                nParts--;
                 length -= (tableLen * 2); // wide bytes
-                mpt = new MultiPartTableName(MultipartIdentifier.ParseMultipartIdentifier(tableName, "[\"", "]\"", Strings.SQL_TDSParserTableName, false));
             }
+            if (nParts == 3)
+            {
+                result = stateObj.TryReadUInt16(out tableLen);
+                if (result != TdsOperationStatus.Done)
+                {
+                    return result;
+                }
+                length -= 2;
+                result = stateObj.TryReadString(tableLen, out value);
+                if (result != TdsOperationStatus.Done)
+                {
+                    return result;
+                }
+                mpt.CatalogName = value;
+                length -= (tableLen * 2); // wide bytes
+                nParts--;
+            }
+            if (nParts == 2)
+            {
+                result = stateObj.TryReadUInt16(out tableLen);
+                if (result != TdsOperationStatus.Done)
+                {
+                    return result;
+                }
+                length -= 2;
+                result = stateObj.TryReadString(tableLen, out value);
+                if (result != TdsOperationStatus.Done)
+                {
+                    return result;
+                }
+                mpt.SchemaName = value;
+                length -= (tableLen * 2); // wide bytes
+                nParts--;
+            }
+            if (nParts == 1)
+            {
+                result = stateObj.TryReadUInt16(out tableLen);
+                if (result != TdsOperationStatus.Done)
+                {
+                    return result;
+                }
+                length -= 2;
+                result = stateObj.TryReadString(tableLen, out value);
+                if (result != TdsOperationStatus.Done)
+                {
+                    return result;
+                }
+                mpt.TableName = value;
+                length -= (tableLen * 2); // wide bytes
+                nParts--;
+            }
+            Debug.Assert(nParts == 0, "ProcessTableName:Unidentified parts in the table name token stream!");
 
             multiPartTableName = mpt;
             return TdsOperationStatus.Done;
@@ -7574,7 +7528,6 @@ namespace Microsoft.Data.SqlClient
         // }
         internal TdsOperationStatus TryReadSqlVariant(SqlBuffer value, int lenTotal, TdsParserStateObject stateObj)
         {
-            Debug.Assert(_is2000 == true, "Shouldn't be dealing with sql_variaint in pre-SQL2000 server!");
             // get the SQLVariant type
             byte type;
             TdsOperationStatus result = stateObj.TryReadByte(out type);
@@ -7778,8 +7731,6 @@ namespace Microsoft.Data.SqlClient
         //
         internal Task WriteSqlVariantValue(object value, int length, int offset, TdsParserStateObject stateObj, bool canAccumulate = true)
         {
-            Debug.Assert(_is2000 == true, "Shouldn't be dealing with sql_variant in pre-SQL2000 server!");
-
             // handle null values
             if (ADP.IsNull(value))
             {
@@ -7947,8 +7898,6 @@ namespace Microsoft.Data.SqlClient
         //
         internal Task WriteSqlVariantDataRowValue(object value, TdsParserStateObject stateObj, bool canAccumulate = true)
         {
-            Debug.Assert(_is2000 == true, "Shouldn't be dealing with sql_variant in pre-SQL2000 server!");
-
             // handle null values
             if (value == null || (DBNull.Value == value))
             {
@@ -10142,7 +10091,7 @@ namespace Microsoft.Data.SqlClient
 
                         if (startParam == 0 || ii > startRpc)
                         {
-                            if (rpcext.ProcID != 0 && _is2000)
+                            if (rpcext.ProcID != 0)
                             {
                                 // Perf optimization for 2000 and later,
                                 Debug.Assert(rpcext.ProcID < 255, "rpcExec:ProcID can't be larger than 255");
@@ -10221,8 +10170,7 @@ namespace Microsoft.Data.SqlClient
                                 continue;
                             }
 
-                            if ((!_is2000 && !mt.Is70Supported) ||
-                                (!_is2005 && !mt.Is80Supported) ||
+                            if ((!_is2005 && !mt.Is80Supported) ||
                                 (!_is2008 && !mt.Is90Supported))
                             {
                                 throw ADP.VersionDoesNotSupportDataType(mt.TypeName);
@@ -10576,10 +10524,7 @@ namespace Microsoft.Data.SqlClient
                             {
                                 if (0 == precision)
                                 {
-                                    if (_is2000)
-                                        stateObj.WriteByte(TdsEnums.DEFAULT_NUMERIC_PRECISION);
-                                    else
-                                        stateObj.WriteByte(TdsEnums.SQL70_DEFAULT_NUMERIC_PRECISION);
+                                    stateObj.WriteByte(TdsEnums.DEFAULT_NUMERIC_PRECISION);
                                 }
                                 else
                                     stateObj.WriteByte(precision);
@@ -10639,7 +10584,7 @@ namespace Microsoft.Data.SqlClient
                                     stateObj.WriteByte(0);       // No schema
                                 }
                             }
-                            else if (_is2000 && mt.IsCharType)
+                            else if (mt.IsCharType)
                             {
                                 // if it is not supplied, simply write out our default collation, otherwise, write out the one attached to the parameter
                                 SqlCollation outCollation = (param.Collation != null) ? param.Collation : _defaultCollation;
@@ -11501,7 +11446,7 @@ namespace Microsoft.Data.SqlClient
                     break;
                 default:
                     WriteTokenLength(mdPriv.tdsType, mdPriv.length, stateObj);
-                    if (mdPriv.metaType.IsCharType && _is2000)
+                    if (mdPriv.metaType.IsCharType)
                     {
                         WriteUnsignedInt(mdPriv.collation._info, stateObj);
                         stateObj.WriteByte(mdPriv.collation._sortId);
@@ -11626,7 +11571,7 @@ namespace Microsoft.Data.SqlClient
                         default:
                             stateObj.WriteByte(md.tdsType);
                             WriteTokenLength(md.tdsType, md.length, stateObj);
-                            if (md.metaType.IsCharType && _is2000)
+                            if (md.metaType.IsCharType)
                             {
                                 WriteUnsignedInt(md.collation._info, stateObj);
                                 stateObj.WriteByte(md.collation._sortId);
@@ -14028,18 +13973,16 @@ namespace Microsoft.Data.SqlClient
                                         + "         _connHandler = {14}\n\t"
                                         + "         _fMARS = {15}\n\t"
                                         + "         _sessionPool = {16}\n\t"
-                                        + "         _is2000 = {17}\n\t"
-                                        + "         _is2000SP1 = {18}\n\t"
-                                        + "         _is2005 = {19}\n\t"
-                                        + "         _sniSpnBuffer = {20}\n\t"
-                                        + "         _errors = {21}\n\t"
-                                        + "         _warnings = {22}\n\t"
-                                        + "         _attentionErrors = {23}\n\t"
-                                        + "         _attentionWarnings = {24}\n\t"
-                                        + "         _statistics = {25}\n\t"
-                                        + "         _statisticsIsInTransaction = {26}\n\t"
-                                        + "         _fPreserveTransaction = {27}"
-                                        + "         _fParallel = {28}"
+                                        + "         _is2005 = {17}\n\t"
+                                        + "         _sniSpnBuffer = {18}\n\t"
+                                        + "         _errors = {19}\n\t"
+                                        + "         _warnings = {20}\n\t"
+                                        + "         _attentionErrors = {21}\n\t"
+                                        + "         _attentionWarnings = {22}\n\t"
+                                        + "         _statistics = {23}\n\t"
+                                        + "         _statisticsIsInTransaction = {24}\n\t"
+                                        + "         _fPreserveTransaction = {25}"
+                                        + "         _fParallel = {26}"
                                         ;
         internal string TraceString()
         {
@@ -14062,8 +14005,6 @@ namespace Microsoft.Data.SqlClient
                             _connHandler == null ? "(null)" : _connHandler.ObjectID.ToString((IFormatProvider)null),
                             _fMARS ? bool.TrueString : bool.FalseString,
                             _sessionPool == null ? "(null)" : _sessionPool.TraceString(),
-                            _is2000 ? bool.TrueString : bool.FalseString,
-                            _is2000SP1 ? bool.TrueString : bool.FalseString,
                             _is2005 ? bool.TrueString : bool.FalseString,
                             _sniSpnBuffer == null ? "(null)" : _sniSpnBuffer.Length.ToString((IFormatProvider)null),
                             _physicalStateObj != null ? "(null)" : _physicalStateObj.ErrorCount.ToString((IFormatProvider)null),
