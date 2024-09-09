@@ -745,14 +745,6 @@ namespace Microsoft.Data.SqlClient
             }
         }
 
-        override internal bool Is2005OrNewer
-        {
-            get
-            {
-                return _parser.Is2005OrNewer;
-            }
-        }
-
         override internal bool Is2008OrNewer
         {
             get
@@ -1145,14 +1137,7 @@ namespace Microsoft.Data.SqlClient
 
             string transactionName = name == null ? String.Empty : name;
 
-            if (!_parser.Is2005OrNewer)
-            {
-                ExecuteTransactionPre2005(transactionRequest, transactionName, iso, internalTransaction);
-            }
-            else
-            {
-                ExecuteTransaction2005(transactionRequest, transactionName, iso, internalTransaction, isDelegateControlRequest);
-            }
+            ExecuteTransaction2005(transactionRequest, transactionName, iso, internalTransaction, isDelegateControlRequest);
         }
 
         // This function will not handle idle connection resiliency, as older servers will not support it

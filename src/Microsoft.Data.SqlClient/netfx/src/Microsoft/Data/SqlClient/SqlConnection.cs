@@ -2861,10 +2861,6 @@ namespace Microsoft.Data.SqlClient
             //
             using (SqlInternalConnectionTds con = new SqlInternalConnectionTds(null, connectionOptions, credential, null, newPassword, newSecurePassword, false, null, null, null, null))
             {
-                if (!con.Is2005OrNewer)
-                {
-                    throw SQL.ChangePasswordRequires2005();
-                }
             }
             SqlConnectionPoolKey key = new SqlConnectionPoolKey(connectionString, credential, accessToken: null, serverCertificateValidationCallback: null, clientCertificateRetrievalCallback: null, originalNetworkAddressInfo: null, accessTokenCallback: null);
 

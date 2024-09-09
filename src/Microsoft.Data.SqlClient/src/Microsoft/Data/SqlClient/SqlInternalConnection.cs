@@ -199,11 +199,6 @@ namespace Microsoft.Data.SqlClient
 #if NETFRAMEWORK
         private bool _isAzureSQLConnection = false; // If connected to Azure SQL
 
-        abstract internal bool Is2005OrNewer
-        {
-            get;
-        }
-
         internal bool IsAzureSQLConnection
         {
             get

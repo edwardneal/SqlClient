@@ -555,15 +555,7 @@ namespace Microsoft.Data.SqlClient
 
             bool isInTransaction;
 
-            if (_parser.Is2005OrNewer)
-            {
-                isInTransaction = _connection.HasLocalTransaction;
-            }
-            else
-            {
-                isInTransaction = (bool)(0 < (SqlInt32)(internalResults[TranCountResultId][TranCountRowId][TranCountValueId]));
-            }
-
+            isInTransaction = _connection.HasLocalTransaction;
             // Throw if there is a transaction but no flag is set
             if (isInTransaction &&
                 _externalTransaction == null &&

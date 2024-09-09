@@ -379,13 +379,7 @@ namespace Microsoft.Data.SqlClient
             }
         }
 
-        internal bool Is2005OrNewer
-        {
-            get
-            {
-                return _is2005;
-            }
-        }
+        internal bool Is2005OrNewer => true;
 
         internal bool Is2008OrNewer
         {
@@ -4701,23 +4695,10 @@ namespace Microsoft.Data.SqlClient
             uint userType;
 
             // read user type - 4 bytes 2005, 2 backwards
-            if (Is2005OrNewer)
+            result = stateObj.TryReadUInt32(out userType);
+            if (result != TdsOperationStatus.Done)
             {
-                result = stateObj.TryReadUInt32(out userType);
-                if (result != TdsOperationStatus.Done)
-                {
-                    return result;
-                }
-            }
-            else
-            {
-                ushort userTypeShort;
-                result = stateObj.TryReadUInt16(out userTypeShort);
-                if (result != TdsOperationStatus.Done)
-                {
-                    return result;
-                }
-                userType = userTypeShort;
+                return result;
             }
 
             // Read off the flags.
@@ -5868,23 +5849,10 @@ namespace Microsoft.Data.SqlClient
             TdsOperationStatus result;
 
             // read user type - 4 bytes 2005, 2 backwards
-            if (Is2005OrNewer)
+            result = stateObj.TryReadUInt32(out userType);
+            if (result != TdsOperationStatus.Done)
             {
-                result = stateObj.TryReadUInt32(out userType);
-                if (result != TdsOperationStatus.Done)
-                {
-                    return result;
-                }
-            }
-            else
-            {
-                ushort userTypeShort;
-                result = stateObj.TryReadUInt16(out userTypeShort);
-                if (result != TdsOperationStatus.Done)
-                {
-                    return result;
-                }
-                userType = userTypeShort;
+                return result;
             }
 
             // read flags and set appropriate flags in structure
@@ -9721,7 +9689,6 @@ namespace Microsoft.Data.SqlClient
                         }
                         break;
                     case TdsEnums.TransactionManagerRequestType.Begin:
-                        Debug.Assert(Is2005OrNewer, "Should not be calling TdsExecuteTransactionManagerRequest on pre-2005 clients for BeginTransaction!");
                         Debug.Assert(transaction != null, "Should have specified an internalTransaction when doing a BeginTransaction request!");
 
                         // Only assign the passed in transaction if it is not equal to the current transaction.
@@ -9750,14 +9717,11 @@ namespace Microsoft.Data.SqlClient
                         WriteString(transactionName, stateObj);
                         break;
                     case TdsEnums.TransactionManagerRequestType.Promote:
-                        Debug.Assert(Is2005OrNewer, "Should not be calling TdsExecuteTransactionManagerRequest on pre-2005 clients for PromoteTransaction!");
                         // No payload - except current transaction in header
                         // Promote returns a DTC cookie.  However, the transaction cookie we use for the
                         // connection does not change after a promote.
                         break;
                     case TdsEnums.TransactionManagerRequestType.Commit:
-                        Debug.Assert(Is2005OrNewer, "Should not be calling TdsExecuteTransactionManagerRequest on pre-2005 clients for CommitTransaction!");
-
                         Debug.Assert(transactionName.Length == 0, "Should not have a transaction name on Commit");
                         stateObj.WriteByte((byte)0); // No xact name
 
@@ -9768,8 +9732,6 @@ namespace Microsoft.Data.SqlClient
                         // WriteByte((byte) 0, stateObj); // No begin xact name
                         break;
                     case TdsEnums.TransactionManagerRequestType.Rollback:
-                        Debug.Assert(Is2005OrNewer, "Should not be calling TdsExecuteTransactionManagerRequest on pre-2005 clients for RollbackTransaction!");
-
                         stateObj.WriteByte((byte)(transactionName.Length * 2)); // Write number of bytes (unicode string).
                         WriteString(transactionName, stateObj);
 
@@ -9780,8 +9742,6 @@ namespace Microsoft.Data.SqlClient
                         // WriteByte((byte) 0, stateObj); // No begin xact name
                         break;
                     case TdsEnums.TransactionManagerRequestType.Save:
-                        Debug.Assert(Is2005OrNewer, "Should not be calling TdsExecuteTransactionManagerRequest on pre-2005 clients for SaveTransaction!");
-
                         stateObj.WriteByte((byte)(transactionName.Length * 2)); // Write number of bytes (unicode string).
                         WriteString(transactionName, stateObj);
                         break;
@@ -10506,7 +10466,7 @@ namespace Microsoft.Data.SqlClient
                                 else if ((!mt.IsVarTime) && (mt.SqlDbType != SqlDbType.Date))
                                 {   // Time, Date, DateTime2, DateTimeoffset do not have the size written out
                                     maxsize = (size > actualSize) ? size : actualSize;
-                                    if (maxsize == 0 && Is2005OrNewer)
+                                    if (maxsize == 0)
                                     {
                                         // 2005 doesn't like 0 as MaxSize. Change it to 2 for unicode types (SQL9 - 682322)
                                         if (mt.IsNCharType)
@@ -11512,14 +11472,7 @@ namespace Microsoft.Data.SqlClient
                     _SqlMetaData md = metadataCollection[i];
 
                     // read user type - 4 bytes 2005, 2 backwards
-                    if (Is2005OrNewer)
-                    {
-                        WriteInt(0x0, stateObj);
-                    }
-                    else
-                    {
-                        WriteShort(0x0000, stateObj);
-                    }
+                    WriteInt(0x0, stateObj);
 
                     // Write the flags
                     UInt16 flags;
