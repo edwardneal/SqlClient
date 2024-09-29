@@ -770,11 +770,7 @@
     <PackageReference Include="System.Text.Encodings.Web">
       <Version>$(SystemTextEncodingsWebVersion)</Version>
     </PackageReference>
-    <PackageReference Include="Microsoft.Data.SqlClient.SNI">
-      <Version>$(MicrosoftDataSqlClientSniVersion)</Version>
-      <PrivateAssets>All</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
+    <PackageReference Include="Microsoft.Data.SqlClient.SNI.runtime" Version="$(MicrosoftDataSqlClientSNIRuntimeVersion)" />
     <PackageReference Include="Azure.Identity">
       <Version>$(AzureIdentityVersion)</Version>
     </PackageReference>
