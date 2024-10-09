@@ -111,9 +111,6 @@ namespace Microsoft.Data.SqlClient
             //                 then we're free to zombify...
             SqlInternalConnection internalConnection = (_connection.InnerConnection as SqlInternalConnection);
             if (internalConnection != null
-#if NETFRAMEWORK
-                && internalConnection.Is2005OrNewer
-#endif
                 && !_isFromAPI)
             {
                 SqlClientEventSource.Log.TryAdvancedTraceEvent("SqlTransaction.Zombie | ADV | Object Id {0} yukon deferred zombie", ObjectID);

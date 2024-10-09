@@ -4,13 +4,17 @@
             <summary>
                 Included to support debugging applications. Not intended for direct use.
             </summary>
-            <remarks>To be added.</remarks>
+            <remarks>
+              This class is instantiated by the system when debugging an application which connects to a local SQL Server 2000 instance. Microsoft.Data.SqlClient does not support SQL Server 2000, so this class is obsolete.
+            </remarks>
         </SQLDebugging>
         <ctor>
             <summary>
                 Initiates instance of <see cref="T:Microsoft.Data.SqlClient.SQLDebugging"/> class object. Not intended for direct use.
             </summary>
-            <remarks>To be added.</remarks>
+            <remarks>
+              This class is instantiated by the system when debugging an application which connects to a local SQL Server 2000 instance. Microsoft.Data.SqlClient does not support SQL Server 2000, so this class is obsolete.
+            </remarks>
         </ctor>
     </members>
 </docs>
