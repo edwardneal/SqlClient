@@ -367,11 +367,6 @@ namespace Microsoft.Data.SqlClient
                     throw ADP.InvalidMixedArgumentOfSecureCredentialAndIntegratedSecurity();
                 }
 
-                if (UsesContextConnection(connectionOptions))
-                {
-                    throw ADP.InvalidMixedArgumentOfSecureCredentialAndContextConnection();
-                }
-
                 if (UsesActiveDirectoryIntegrated(connectionOptions))
                 {
                     throw SQL.SettingCredentialWithIntegratedArgument();
@@ -479,49 +474,39 @@ namespace Microsoft.Data.SqlClient
             }
             set
             {
-                if (IsContextConnection)
+                if (value)
                 {
-                    if (value)
+                    // start
+                    if (ConnectionState.Open == State)
                     {
-                        throw SQL.NotAvailableOnContextConnection();
+                        if (_statistics == null)
+                        {
+                            _statistics = new SqlStatistics();
+                            _statistics._openTimestamp = ADP.TimerCurrent();
+                        }
+                        // set statistics on the parser
+                        // update timestamp;
+                        Debug.Assert(Parser != null, "Where's the parser?");
+                        Parser.Statistics = _statistics;
                     }
                 }
                 else
                 {
-                    if (value)
+                    // stop
+                    if (_statistics != null)
                     {
-                        // start
                         if (ConnectionState.Open == State)
                         {
-                            if (_statistics == null)
-                            {
-                                _statistics = new SqlStatistics();
-                                _statistics._openTimestamp = ADP.TimerCurrent();
-                            }
-                            // set statistics on the parser
+                            // remove statistics from parser
                             // update timestamp;
-                            Debug.Assert(Parser != null, "Where's the parser?");
-                            Parser.Statistics = _statistics;
+                            TdsParser parser = Parser;
+                            Debug.Assert(parser != null, "Where's the parser?");
+                            parser.Statistics = null;
+                            _statistics._closeTimestamp = ADP.TimerCurrent();
                         }
                     }
-                    else
-                    {
-                        // stop
-                        if (_statistics != null)
-                        {
-                            if (ConnectionState.Open == State)
-                            {
-                                // remove statistics from parser
-                                // update timestamp;
-                                TdsParser parser = Parser;
-                                Debug.Assert(parser != null, "Where's the parser?");
-                                parser.Statistics = null;
-                                _statistics._closeTimestamp = ADP.TimerCurrent();
-                            }
-                        }
-                    }
-                    this._collectstats = value;
                 }
+                this._collectstats = value;
             }
         }
 
@@ -535,15 +520,6 @@ namespace Microsoft.Data.SqlClient
             set
             {
                 _AsyncCommandInProgress = value;
-            }
-        }
-
-        internal bool IsContextConnection
-        {
-            get
-            {
-                SqlConnectionString opt = (SqlConnectionString)ConnectionOptions;
-                return UsesContextConnection(opt);
             }
         }
 
@@ -589,12 +565,6 @@ namespace Microsoft.Data.SqlClient
         internal SqlConnectionIPAddressPreference iPAddressPreference
         {
             get => ((SqlConnectionString)ConnectionOptions).IPAddressPreference;
-        }
-
-        // Is this connection is a Context Connection?
-        private bool UsesContextConnection(SqlConnectionString opt)
-        {
-            return opt != null && opt.ContextConnection;
         }
 
         private bool UsesActiveDirectoryIntegrated(SqlConnectionString opt)
@@ -987,11 +957,6 @@ namespace Microsoft.Data.SqlClient
             // can just return what the connection string had.
             get
             {
-                if (IsContextConnection)
-                {
-                    throw SQL.NotAvailableOnContextConnection();
-                }
-
                 SqlInternalConnectionTds innerConnection = (InnerConnection as SqlInternalConnectionTds);
                 int result;
 
@@ -1103,11 +1068,6 @@ namespace Microsoft.Data.SqlClient
         {
             get
             {
-                if (IsContextConnection)
-                {
-                    throw SQL.NotAvailableOnContextConnection();
-                }
-
                 // If not supplied by the user, the default value is the MachineName
                 // Note: In Longhorn you'll be able to rename a machine without
                 // rebooting.  Therefore, don't cache this machine name.
@@ -1222,11 +1182,6 @@ namespace Microsoft.Data.SqlClient
             {
                 throw ADP.InvalidMixedUsageOfSecureCredentialAndIntegratedSecurity();
             }
-
-            if (UsesContextConnection(connectionOptions))
-            {
-                throw ADP.InvalidMixedArgumentOfSecureCredentialAndContextConnection();
-            }
         }
 
         // CheckAndThrowOnInvalidCombinationOfConnectionOptionAndAccessToken: check if the usage of AccessToken has any conflict
@@ -1243,11 +1198,6 @@ namespace Microsoft.Data.SqlClient
             if (UsesIntegratedSecurity(connectionOptions))
             {
                 throw ADP.InvalidMixedUsageOfAccessTokenAndIntegratedSecurity();
-            }
-
-            if (UsesContextConnection(connectionOptions))
-            {
-                throw ADP.InvalidMixedUsageOfAccessTokenAndContextConnection();
             }
 
             if (UsesAuthentication(connectionOptions))
@@ -1487,10 +1437,6 @@ namespace Microsoft.Data.SqlClient
             if (connectionOptions != null)
             {
                 connectionOptions.DemandPermission();
-                if (connection.IsContextConnection)
-                {
-                    throw SQL.NotAvailableOnContextConnection();
-                }
                 SqlConnectionFactory.SingletonInstance.ClearPool(connection);
             }
         }
@@ -1643,11 +1589,6 @@ namespace Microsoft.Data.SqlClient
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlConnection.xml' path='docs/members[@name="SqlConnection"]/EnlistDistributedTransaction/*' />
         public void EnlistDistributedTransaction(System.EnterpriseServices.ITransaction transaction)
         {
-            if (IsContextConnection)
-            {
-                throw SQL.NotAvailableOnContextConnection();
-            }
-
             EnlistDistributedTransactionHelper(transaction);
         }
 
@@ -1964,13 +1905,6 @@ namespace Microsoft.Data.SqlClient
                         return result.Task;
                     }
 
-                    if (IsContextConnection)
-                    {
-                        // Async not supported on Context Connections
-                        result.SetException(ADP.ExceptionWithStackTrace(SQL.NotAvailableOnContextConnection()));
-                        return result.Task;
-                    }
-
                     bool completed;
 
                     try
@@ -2179,33 +2113,26 @@ namespace Microsoft.Data.SqlClient
                     bestEffortCleanupTarget = SqlInternalConnection.GetBestEffortCleanupTarget(this);
 
                     var tdsInnerConnection = (InnerConnection as SqlInternalConnectionTds);
-                    if (tdsInnerConnection == null)
+
+                    Debug.Assert(tdsInnerConnection.Parser != null, "Where's the parser?");
+
+                    if (!tdsInnerConnection.ConnectionOptions.Pooling)
                     {
-                        SqlInternalConnectionSmi innerConnection = (InnerConnection as SqlInternalConnectionSmi);
-                        innerConnection.AutomaticEnlistment();
+                        // For non-pooled connections, we need to make sure that the finalizer does actually run to avoid leaking SNI handles
+                        GC.ReRegisterForFinalize(this);
+                    }
+
+                    if (StatisticsEnabled)
+                    {
+                        _statistics._openTimestamp = ADP.TimerCurrent();
+                        tdsInnerConnection.Parser.Statistics = _statistics;
                     }
                     else
                     {
-                        Debug.Assert(tdsInnerConnection.Parser != null, "Where's the parser?");
-
-                        if (!tdsInnerConnection.ConnectionOptions.Pooling)
-                        {
-                            // For non-pooled connections, we need to make sure that the finalizer does actually run to avoid leaking SNI handles
-                            GC.ReRegisterForFinalize(this);
-                        }
-
-                        if (StatisticsEnabled)
-                        {
-                            _statistics._openTimestamp = ADP.TimerCurrent();
-                            tdsInnerConnection.Parser.Statistics = _statistics;
-                        }
-                        else
-                        {
-                            tdsInnerConnection.Parser.Statistics = null;
-                            _statistics = null; // in case of previous Open/Close/reset_CollectStats sequence
-                        }
-                        CompleteOpen();
+                        tdsInnerConnection.Parser.Statistics = null;
+                        _statistics = null; // in case of previous Open/Close/reset_CollectStats sequence
                     }
+                    CompleteOpen();
                 }
 #if DEBUG
                 finally
@@ -2738,10 +2665,6 @@ namespace Microsoft.Data.SqlClient
                 {
                     throw SQL.ChangePasswordUseOfUnallowedKey(SqlConnectionString.KEY.AttachDBFilename);
                 }
-                if (connectionOptions.ContextConnection)
-                {
-                    throw SQL.ChangePasswordUseOfUnallowedKey(SqlConnectionString.KEY.Context_Connection);
-                }
 
                 System.Security.PermissionSet permissionSet = connectionOptions.CreatePermissionSet();
                 permissionSet.Demand();
@@ -2801,11 +2724,6 @@ namespace Microsoft.Data.SqlClient
                 if (!ADP.IsEmpty(connectionOptions.AttachDBFilename))
                 {
                     throw SQL.ChangePasswordUseOfUnallowedKey(SqlConnectionString.KEY.AttachDBFilename);
-                }
-
-                if (connectionOptions.ContextConnection)
-                {
-                    throw SQL.ChangePasswordUseOfUnallowedKey(SqlConnectionString.KEY.Context_Connection);
                 }
 
                 System.Security.PermissionSet permissionSet = connectionOptions.CreatePermissionSet();
@@ -2898,11 +2816,6 @@ namespace Microsoft.Data.SqlClient
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlConnection.xml' path='docs/members[@name="SqlConnection"]/ResetStatistics/*' />
         public void ResetStatistics()
         {
-            if (IsContextConnection)
-            {
-                throw SQL.NotAvailableOnContextConnection();
-            }
-
             if (Statistics != null)
             {
                 Statistics.Reset();
@@ -2917,11 +2830,6 @@ namespace Microsoft.Data.SqlClient
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient/SqlConnection.xml' path='docs/members[@name="SqlConnection"]/RetrieveStatistics/*' />
         public IDictionary RetrieveStatistics()
         {
-            if (IsContextConnection)
-            {
-                throw SQL.NotAvailableOnContextConnection();
-            }
-
             if (Statistics != null)
             {
                 UpdateStatistics();

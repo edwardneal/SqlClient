@@ -518,10 +518,7 @@ namespace Microsoft.Data.ProviderBase
                             else
                             {
                                 PerformanceCounters.NumberOfNonPooledConnections.Decrement();
-                                if (this.GetType() != typeof(Microsoft.Data.SqlClient.SqlInternalConnectionSmi))
-                                {
-                                    Dispose();
-                                }
+                                Dispose();
                             }
                         }
                     }

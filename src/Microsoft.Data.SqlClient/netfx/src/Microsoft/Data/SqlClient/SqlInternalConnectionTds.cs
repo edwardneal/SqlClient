@@ -474,11 +474,6 @@ namespace Microsoft.Data.SqlClient
                 }
             }
 
-            if (connectionOptions.UserInstance && InOutOfProcHelper.InProc)
-            {
-                throw SQL.UserInstanceNotAvailableInProc();
-            }
-
             if (accessToken != null)
             {
                 _accessTokenInBytes = System.Text.Encoding.Unicode.GetBytes(accessToken);
@@ -493,7 +488,6 @@ namespace Microsoft.Data.SqlClient
             Debug.Assert(credential == null || (string.IsNullOrEmpty(connectionOptions.UserID) && string.IsNullOrEmpty(connectionOptions.Password)), "cannot mix the new secure password system and the connection string based password");
 
             Debug.Assert(credential == null || !connectionOptions.IntegratedSecurity, "Cannot use SqlCredential and Integrated Security");
-            Debug.Assert(credential == null || !connectionOptions.ContextConnection, "Cannot use SqlCredential with context connection");
 
             _poolGroupProviderInfo = (SqlConnectionPoolGroupProviderInfo)providerInfo;
             _fResetConnection = connectionOptions.ConnectionReset;

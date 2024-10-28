@@ -2526,11 +2526,6 @@ namespace Microsoft.Data.SqlClient
         {
             return ADP.Argument(StringsHelper.GetString(Strings.SQL_SnapshotNotSupported, typeof(System.Data.IsolationLevel), level.ToString()));
         }
-        static internal Exception UnexpectedSmiEvent(Microsoft.Data.SqlClient.Server.SmiEventSink_Default.UnexpectedEventType eventType)
-        {
-            Debug.Assert(false, "UnexpectedSmiEvent: " + eventType.ToString());    // Assert here, because these exceptions will most likely be eaten by the server.
-            return ADP.InvalidOperation(StringsHelper.GetString(Strings.SQL_UnexpectedSmiEvent, (int)eventType));
-        }
 #endif
 
     }
@@ -2778,12 +2773,6 @@ namespace Microsoft.Data.SqlClient
                 return _getPromotedToken.Value;
             }
         }
-    }
-
-    internal static class InOutOfProcHelper
-    {
-        internal static bool InProc
-            => false;
     }
 }
 
