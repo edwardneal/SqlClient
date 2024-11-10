@@ -141,7 +141,6 @@ namespace Microsoft.Data.SqlClient.Server
             ITypedGettersV3 getters,                // getters interface to grab value from
             int ordinal,                // parameter within getters
             SmiMetaData metaData,               // Getter's type for this ordinal
-            SmiContext context,                // used to obtain scratch streams
             SqlBuffer targetBuffer            // destination
         )
         {
@@ -214,13 +213,13 @@ namespace Microsoft.Data.SqlClient.Server
                         metaData = getters.GetVariantType(sink, ordinal);
                         sink.ProcessMessagesAndThrow();
                         Debug.Assert(SqlDbType.Variant != metaData.SqlDbType, "Variant-within-variant not supposed to be possible!");
-                        GetOutputParameterV3Smi(sink, getters, ordinal, metaData, context, targetBuffer);
+                        GetOutputParameterV3Smi(sink, getters, ordinal, metaData, targetBuffer);
                         break;
                     case SqlDbType.Udt:
                         result = GetUdt_LengthChecked(sink, getters, ordinal, metaData);
                         break;
                     case SqlDbType.Xml:
-                        targetBuffer.SqlXml = GetSqlXml_Unchecked(sink, getters, ordinal, null);
+                        targetBuffer.SqlXml = GetSqlXml_Unchecked(sink, getters, ordinal);
                         break;
                     default:
                         Debug.Assert(false, "Unexpected SqlDbType");
@@ -238,7 +237,6 @@ namespace Microsoft.Data.SqlClient.Server
             SmiTypedGetterSetter getters,                // getters interface to grab value from
             int ordinal,                // parameter within getters
             SmiMetaData metaData,               // Getter's type for this ordinal
-            SmiContext context,                // used to obtain scratch streams
             SqlBuffer targetBuffer            // destination
         )
         {
@@ -257,7 +255,7 @@ namespace Microsoft.Data.SqlClient.Server
                         metaData = getters.GetVariantType(sink, ordinal);
                         sink.ProcessMessagesAndThrow();
                         Debug.Assert(SqlDbType.Variant != metaData.SqlDbType, "Variant-within-variant not supposed to be possible!");
-                        GetOutputParameterV200Smi(sink, getters, ordinal, metaData, context, targetBuffer);
+                        GetOutputParameterV200Smi(sink, getters, ordinal, metaData, targetBuffer);
                         break;
                     case SqlDbType.Date:
                         targetBuffer.SetToDate(GetDateTime_Unchecked(sink, getters, ordinal));
@@ -272,7 +270,7 @@ namespace Microsoft.Data.SqlClient.Server
                         targetBuffer.SetToDateTimeOffset(GetDateTimeOffset_Unchecked(sink, getters, ordinal), metaData.Scale);
                         break;
                     default:
-                        result = GetOutputParameterV3Smi(sink, getters, ordinal, metaData, context, targetBuffer);
+                        result = GetOutputParameterV3Smi(sink, getters, ordinal, metaData, targetBuffer);
                         break;
                 }
             }

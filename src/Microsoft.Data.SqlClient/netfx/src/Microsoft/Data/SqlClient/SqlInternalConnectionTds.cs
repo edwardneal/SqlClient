@@ -493,7 +493,6 @@ namespace Microsoft.Data.SqlClient
             Debug.Assert(credential == null || (string.IsNullOrEmpty(connectionOptions.UserID) && string.IsNullOrEmpty(connectionOptions.Password)), "cannot mix the new secure password system and the connection string based password");
 
             Debug.Assert(credential == null || !connectionOptions.IntegratedSecurity, "Cannot use SqlCredential and Integrated Security");
-            Debug.Assert(credential == null || !connectionOptions.ContextConnection, "Cannot use SqlCredential with context connection");
 
             _poolGroupProviderInfo = (SqlConnectionPoolGroupProviderInfo)providerInfo;
             _fResetConnection = connectionOptions.ConnectionReset;

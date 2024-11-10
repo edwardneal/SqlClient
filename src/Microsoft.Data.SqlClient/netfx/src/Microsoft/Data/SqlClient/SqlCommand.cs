@@ -403,7 +403,6 @@ namespace Microsoft.Data.SqlClient
             }
         }
 
-        private SmiContext _smiRequestContext; // context that _smiRequest came from
         private CommandEventSink _smiEventSink;
         private SmiEventSink_DeferedProcessing _outParamEventSink;
 
@@ -416,7 +415,6 @@ namespace Microsoft.Data.SqlClient
                     _smiEventSink = new CommandEventSink(this);
                 }
 
-                _smiEventSink.Parent = InternalSmiConnection.CurrentEventSink;
                 return _smiEventSink;
             }
         }
@@ -523,9 +521,6 @@ namespace Microsoft.Data.SqlClient
                     _transaction = null;
                 }
 
-                // If the connection has changes, then the request context may have changed as well
-                _smiRequestContext = null;
-
                 // Command is no longer prepared on new connection, cleanup prepare status
                 if (IsPrepared)
                 {
@@ -593,14 +588,6 @@ namespace Microsoft.Data.SqlClient
             set
             {
                 Connection = (SqlConnection)value;
-            }
-        }
-
-        private SqlInternalConnectionSmi InternalSmiConnection
-        {
-            get
-            {
-                return (SqlInternalConnectionSmi)_activeConnection.InnerConnection;
             }
         }
 
@@ -1021,12 +1008,6 @@ namespace Microsoft.Data.SqlClient
             // between entry into Execute* API and the thread obtaining the stateObject.
             _pendingCancel = false;
 
-            // Context connection's prepare is a no-op
-            if (_activeConnection != null && _activeConnection.IsContextConnection)
-            {
-                return;
-            }
-
             SqlStatistics statistics = null;
             using (TryEventScope.Create("<sc.SqlCommand.Prepare|API> {0}", ObjectID))
             {
@@ -1168,12 +1149,6 @@ namespace Microsoft.Data.SqlClient
         // SqlInternalConnectionTds needs to be able to unprepare a statement
         internal void Unprepare()
         {
-            // Context connection's prepare is a no-op
-            if (_activeConnection.IsContextConnection)
-            {
-                return;
-            }
-
             Debug.Assert(true == IsPrepared, "Invalid attempt to Unprepare a non-prepared command!");
             Debug.Assert(_activeConnection != null, "must have an open connection to UnPrepare");
             Debug.Assert(false == _inPrepare, "_inPrepare should be false!");
@@ -5856,12 +5831,6 @@ namespace Microsoft.Data.SqlClient
             {
                 throw SQL.NotificationsRequire2005();
             }
-
-            if ((async) && (_activeConnection.IsContextConnection))
-            {
-                // Async not supported on Context Connections
-                throw SQL.NotAvailableOnContextConnection();
-            }
         }
 
         private void ValidateAsyncCommand()
@@ -6286,12 +6255,12 @@ namespace Microsoft.Data.SqlClient
                     if (_activeConnection.Is2008OrNewer)
                     {
                         result = ValueUtilsSmi.GetOutputParameterV200Smi(
-                                OutParamEventSink, (SmiTypedGetterSetter)parameterValues, ordinal, metaData, _smiRequestContext, buffer);
+                                OutParamEventSink, (SmiTypedGetterSetter)parameterValues, ordinal, metaData, buffer);
                     }
                     else
                     {
                         result = ValueUtilsSmi.GetOutputParameterV3Smi(
-                                    OutParamEventSink, parameterValues, ordinal, metaData, _smiRequestContext, buffer);
+                                    OutParamEventSink, parameterValues, ordinal, metaData, buffer);
                     }
                     if (result != null)
                     {

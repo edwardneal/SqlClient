@@ -12,8 +12,6 @@ namespace Microsoft.Data.SqlClient.Server
     /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/SqlDataRecord/*' />
     public partial class SqlDataRecord : IDataRecord
     {
-        private readonly SmiContext _recordContext;
-     
         private Type GetFieldTypeFrameworkSpecific(int ordinal)
         {
             SqlMetaData md = GetSqlMetaData(ordinal);
@@ -32,11 +30,11 @@ namespace Microsoft.Data.SqlClient.Server
             SmiMetaData metaData = GetSmiMetaData(ordinal);
             if (SmiVersion >= SmiContextFactory.Sql2008Version)
             {
-                return ValueUtilsSmi.GetValue200(_eventSink, _recordBuffer, ordinal, metaData, _recordContext);
+                return ValueUtilsSmi.GetValue200(_eventSink, _recordBuffer, ordinal, metaData);
             }
             else
             {
-                return ValueUtilsSmi.GetValue(_eventSink, _recordBuffer, ordinal, metaData, _recordContext);
+                return ValueUtilsSmi.GetValue(_eventSink, _recordBuffer, ordinal, metaData);
             }
         }
     
@@ -45,16 +43,16 @@ namespace Microsoft.Data.SqlClient.Server
             SmiMetaData metaData = GetSmiMetaData(ordinal);
             if (SmiVersion >= SmiContextFactory.Sql2008Version)
             {
-                return ValueUtilsSmi.GetSqlValue200(_eventSink, _recordBuffer, ordinal, metaData, _recordContext);
+                return ValueUtilsSmi.GetSqlValue200(_eventSink, _recordBuffer, ordinal, metaData);
             }
-            return ValueUtilsSmi.GetSqlValue(_eventSink, _recordBuffer, ordinal, metaData, _recordContext);
+            return ValueUtilsSmi.GetSqlValue(_eventSink, _recordBuffer, ordinal, metaData);
         }
 
-        private SqlBytes GetSqlBytesFrameworkSpecific(int ordinal) => ValueUtilsSmi.GetSqlBytes(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal), _recordContext);
+        private SqlBytes GetSqlBytesFrameworkSpecific(int ordinal) => ValueUtilsSmi.GetSqlBytes(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal));
  
-        private SqlXml GetSqlXmlFrameworkSpecific(int ordinal) => ValueUtilsSmi.GetSqlXml(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal), _recordContext);
+        private SqlXml GetSqlXmlFrameworkSpecific(int ordinal) => ValueUtilsSmi.GetSqlXml(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal));
         
-        private SqlChars GetSqlCharsFrameworkSpecific(int ordinal) => ValueUtilsSmi.GetSqlChars(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal), _recordContext);
+        private SqlChars GetSqlCharsFrameworkSpecific(int ordinal) => ValueUtilsSmi.GetSqlChars(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal));
  
         private int SetValuesFrameworkSpecific(params object[] values)
         {

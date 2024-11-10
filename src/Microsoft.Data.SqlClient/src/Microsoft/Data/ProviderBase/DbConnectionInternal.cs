@@ -503,16 +503,12 @@ namespace Microsoft.Data.ProviderBase
                             }
                             else
                             {
-                                #if NETFRAMEWORK
+#if NETFRAMEWORK
                                 PerformanceCounters.NumberOfNonPooledConnections.Decrement();
-                                if (this is not SqlInternalConnectionSmi)
-                                {
-                                    Dispose();
-                                }
-                                #else
+#else
                                 SqlClientEventSource.Log.ExitNonPooledConnection();
+#endif
                                 Dispose();
-                                #endif
                             }
                         }
                     }

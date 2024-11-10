@@ -2416,18 +2416,6 @@ namespace Microsoft.Data.SqlClient
         // Merged Provider
         //
 
-        static internal Exception ContextAllowsLimitedKeywords()
-        {
-            return ADP.InvalidOperation(StringsHelper.GetString(Strings.SQL_ContextAllowsLimitedKeywords));
-        }
-        static internal Exception ContextAllowsOnlyTypeSystem2005()
-        {
-            return ADP.InvalidOperation(StringsHelper.GetString(Strings.SQL_ContextAllowsOnlyTypeSystem2005));
-        }
-        static internal Exception ContextConnectionIsInUse()
-        {
-            return ADP.InvalidOperation(StringsHelper.GetString(Strings.SQL_ContextConnectionIsInUse));
-        }
         static internal Exception ContextConnectionIsUnsupported()
         {
             return ADP.InvalidOperation(StringsHelper.GetString(Strings.SQL_ContextConnectionIsUnsupported));
@@ -2435,18 +2423,6 @@ namespace Microsoft.Data.SqlClient
         static internal Exception ContextUnavailableOutOfProc()
         {
             return ADP.InvalidOperation(StringsHelper.GetString(Strings.SQL_ContextUnavailableOutOfProc));
-        }
-        static internal Exception ContextUnavailableWhileInProc()
-        {
-            return ADP.InvalidOperation(StringsHelper.GetString(Strings.SQL_ContextUnavailableWhileInProc));
-        }
-        static internal Exception NestedTransactionScopesNotSupported()
-        {
-            return ADP.InvalidOperation(StringsHelper.GetString(Strings.SQL_NestedTransactionScopesNotSupported));
-        }
-        static internal Exception NotAvailableOnContextConnection()
-        {
-            return ADP.InvalidOperation(StringsHelper.GetString(Strings.SQL_NotAvailableOnContextConnection));
         }
 
         static internal Exception UserInstanceNotAvailableInProc()

@@ -386,12 +386,10 @@ namespace Microsoft.Data.SqlClient.Server
             }
 
             _eventSink = new SmiEventSink_Default();
-#if NETFRAMEWORK
-            _recordContext = null;
             _recordBuffer = new MemoryRecordBuffer(_columnSmiMetaData);
+#if NETFRAMEWORK
             _usesStringStorageForXml = true;
 #else
-            _recordBuffer = new MemoryRecordBuffer(_columnSmiMetaData);
             _eventSink.ProcessMessagesAndThrow();
 #endif
         }
