@@ -239,22 +239,6 @@ namespace Microsoft.Data.SqlClient.Server
             return (DateTime)result;
         }
 
-        // calling GetDateTimeOffset on possibly v100 SMI
-        internal static DateTimeOffset GetDateTimeOffset(SmiEventSink_Default sink, ITypedGettersV3 getters, int ordinal, SmiMetaData metaData, bool gettersSupport2008DateTime)
-        {
-            if (gettersSupport2008DateTime)
-            {
-                return GetDateTimeOffset(sink, (SmiTypedGetterSetter)getters, ordinal, metaData);
-            }
-            ThrowIfITypedGettersIsNull(sink, getters, ordinal);
-            object result = GetValue(sink, getters, ordinal, metaData);
-            if (result == null)
-            {
-                throw ADP.InvalidCast();
-            }
-            return (DateTimeOffset)result;
-        }
-
         // dealing with v200 SMI
         internal static DateTimeOffset GetDateTimeOffset(SmiEventSink_Default sink, SmiTypedGetterSetter getters, int ordinal, SmiMetaData metaData)
         {
@@ -1310,12 +1294,8 @@ namespace Microsoft.Data.SqlClient.Server
             SetDateTime_Checked(sink, setters, ordinal, metaData, value);
         }
 
-        internal static void SetDateTimeOffset(SmiEventSink_Default sink, ITypedSettersV3 setters, int ordinal, SmiMetaData metaData, DateTimeOffset value, bool settersSupport2008DateTime = true)
+        internal static void SetDateTimeOffset(SmiEventSink_Default sink, ITypedSettersV3 setters, int ordinal, SmiMetaData metaData, DateTimeOffset value)
         {
-            if (!settersSupport2008DateTime)
-            {
-                throw ADP.InvalidCast();
-            }
             ThrowIfInvalidSetterAccess(metaData, ExtendedClrTypeCode.DateTimeOffset);
             SetDateTimeOffset_Unchecked(sink, (SmiTypedGetterSetter)setters, ordinal, value);
         }
@@ -1465,12 +1445,8 @@ namespace Microsoft.Data.SqlClient.Server
             SetString_LengthChecked(sink, setters, ordinal, metaData, value, 0);
         }
 
-        internal static void SetTimeSpan(SmiEventSink_Default sink, ITypedSettersV3 setters, int ordinal, SmiMetaData metaData, TimeSpan value, bool settersSupport2008DateTime = true)
+        internal static void SetTimeSpan(SmiEventSink_Default sink, ITypedSettersV3 setters, int ordinal, SmiMetaData metaData, TimeSpan value)
         {
-            if (!settersSupport2008DateTime)
-            {
-                throw ADP.InvalidCast();
-            }
             ThrowIfInvalidSetterAccess(metaData, ExtendedClrTypeCode.TimeSpan);
             SetTimeSpan_Checked(sink, (SmiTypedGetterSetter)setters, ordinal, metaData, value);
         }
@@ -1727,133 +1703,6 @@ namespace Microsoft.Data.SqlClient.Server
             }
         }
 
-        // Copy multiple fields from reader to ITypedSettersV3
-        //  Assumes caller enforces that reader and setter metadata are compatible
-        internal static void FillCompatibleITypedSettersFromReader(SmiEventSink_Default sink, ITypedSettersV3 setters, SmiMetaData[] metaData, SqlDataReader reader)
-        {
-            for (int i = 0; i < metaData.Length; i++)
-            {
-                if (reader.IsDBNull(i))
-                {
-                    ValueUtilsSmi.SetDBNull_Unchecked(sink, setters, i);
-                }
-                else
-                {
-                    switch (metaData[i].SqlDbType)
-                    {
-                        case SqlDbType.BigInt:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.Int64));
-                            ValueUtilsSmi.SetInt64_Unchecked(sink, setters, i, reader.GetInt64(i));
-                            break;
-                        case SqlDbType.Binary:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.SqlBytes));
-                            ValueUtilsSmi.SetSqlBytes_LengthChecked(sink, setters, i, metaData[i], reader.GetSqlBytes(i), 0);
-                            break;
-                        case SqlDbType.Bit:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.Boolean));
-                            SetBoolean_Unchecked(sink, setters, i, reader.GetBoolean(i));
-                            break;
-                        case SqlDbType.Char:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.SqlChars));
-                            SetSqlChars_LengthChecked(sink, setters, i, metaData[i], reader.GetSqlChars(i), 0);
-                            break;
-                        case SqlDbType.DateTime:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.DateTime));
-                            SetDateTime_Checked(sink, setters, i, metaData[i], reader.GetDateTime(i));
-                            break;
-                        case SqlDbType.Decimal:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.SqlDecimal));
-                            SetSqlDecimal_Unchecked(sink, setters, i, reader.GetSqlDecimal(i));
-                            break;
-                        case SqlDbType.Float:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.Double));
-                            SetDouble_Unchecked(sink, setters, i, reader.GetDouble(i));
-                            break;
-                        case SqlDbType.Image:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.SqlBytes));
-                            SetSqlBytes_LengthChecked(sink, setters, i, metaData[i], reader.GetSqlBytes(i), 0);
-                            break;
-                        case SqlDbType.Int:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.Int32));
-                            SetInt32_Unchecked(sink, setters, i, reader.GetInt32(i));
-                            break;
-                        case SqlDbType.Money:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.SqlMoney));
-                            SetSqlMoney_Unchecked(sink, setters, i, metaData[i], reader.GetSqlMoney(i));
-                            break;
-                        case SqlDbType.NChar:
-                        case SqlDbType.NText:
-                        case SqlDbType.NVarChar:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.SqlChars));
-                            SetSqlChars_LengthChecked(sink, setters, i, metaData[i], reader.GetSqlChars(i), 0);
-                            break;
-                        case SqlDbType.Real:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.Single));
-                            SetSingle_Unchecked(sink, setters, i, reader.GetFloat(i));
-                            break;
-                        case SqlDbType.UniqueIdentifier:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.Guid));
-                            SetGuid_Unchecked(sink, setters, i, reader.GetGuid(i));
-                            break;
-                        case SqlDbType.SmallDateTime:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.DateTime));
-                            SetDateTime_Checked(sink, setters, i, metaData[i], reader.GetDateTime(i));
-                            break;
-                        case SqlDbType.SmallInt:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.Int16));
-                            SetInt16_Unchecked(sink, setters, i, reader.GetInt16(i));
-                            break;
-                        case SqlDbType.SmallMoney:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.SqlMoney));
-                            SetSqlMoney_Checked(sink, setters, i, metaData[i], reader.GetSqlMoney(i));
-                            break;
-                        case SqlDbType.Text:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.SqlChars));
-                            SetSqlChars_LengthChecked(sink, setters, i, metaData[i], reader.GetSqlChars(i), 0);
-                            break;
-                        case SqlDbType.Timestamp:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.SqlBytes));
-                            SetSqlBytes_LengthChecked(sink, setters, i, metaData[i], reader.GetSqlBytes(i), 0);
-                            break;
-                        case SqlDbType.TinyInt:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.Byte));
-                            SetByte_Unchecked(sink, setters, i, reader.GetByte(i));
-                            break;
-                        case SqlDbType.VarBinary:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.SqlBytes));
-                            SetSqlBytes_LengthChecked(sink, setters, i, metaData[i], reader.GetSqlBytes(i), 0);
-                            break;
-                        case SqlDbType.VarChar:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.String));
-                            SetSqlChars_LengthChecked(sink, setters, i, metaData[i], reader.GetSqlChars(i), 0);
-                            break;
-                        case SqlDbType.Xml:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.SqlXml));
-                            SetSqlXml_Unchecked(sink, setters, i, reader.GetSqlXml(i));
-                            break;
-                        case SqlDbType.Variant:
-                            object o = reader.GetSqlValue(i);
-                            ExtendedClrTypeCode typeCode = MetaDataUtilsSmi.DetermineExtendedTypeCode(o);
-                            SetCompatibleValue(sink, setters, i, metaData[i], o, typeCode, 0);
-                            break;
-
-                        case SqlDbType.Udt:
-                            Debug.Assert(CanAccessSetterDirectly(metaData[i], ExtendedClrTypeCode.SqlBytes));
-                            SetSqlBytes_LengthChecked(sink, setters, i, metaData[i], reader.GetSqlBytes(i), 0);
-                            break;
-
-                        default:
-                            // In order for us to get here we would have to have an 
-                            // invalid instance of SqlDbType, or one would have to add 
-                            // new member to SqlDbType without adding a case in this 
-                            // switch, hence the assert.
-                            Debug.Fail("unsupported DbType:" + metaData[i].SqlDbType.ToString());
-                            throw ADP.NotSupported();
-                    }
-                }
-            }
-        }
-
         // Copy multiple fields from reader to SmiTypedGetterSetter
         //  Supports V200 code path, without damaging backward compat for V100 code.
         //  Main differences are supporting DbDataReader, and for binary, character, decimal and Udt types.
@@ -1993,13 +1842,7 @@ namespace Microsoft.Data.SqlClient.Server
                                 {
                                     o = reader.GetValue(i);
                                 }
-                                ExtendedClrTypeCode typeCode = MetaDataUtilsSmi.DetermineExtendedTypeCodeForUseWithSqlDbType(metaData[i].SqlDbType, metaData[i].IsMultiValued, o, null
-#if NETFRAMEWORK
-                                    ,// TODO: this version works for shipping VS2008, since only 2008 (TVP) codepath calls this method at this time.
-                                     //      Need a better story for smi versioning of ValueUtilsSmi post-VS2008
-                                    SmiContextFactory.Sql2008Version
-#endif
-                                    );
+                                ExtendedClrTypeCode typeCode = MetaDataUtilsSmi.DetermineExtendedTypeCodeForUseWithSqlDbType(metaData[i].SqlDbType, metaData[i].IsMultiValued, o, null);
                                 if ((storageType == SqlBuffer.StorageType.DateTime2) || (storageType == SqlBuffer.StorageType.Date))
                                 {
                                     SetCompatibleValueV200(sink, setters, i, metaData[i], o, typeCode, 0, null, storageType);
@@ -3863,13 +3706,7 @@ namespace Microsoft.Data.SqlClient.Server
                         if (ExtendedClrTypeCode.Invalid == cellTypes[i])
                         {
                             cellTypes[i] = MetaDataUtilsSmi.DetermineExtendedTypeCodeForUseWithSqlDbType(
-                                    fieldMetaData.SqlDbType, fieldMetaData.IsMultiValued, cellValue, fieldMetaData.Type
-#if NETFRAMEWORK
-                                   ,// TODO: this version works for shipping VS2008, since only 2008 supports TVPs at this time.
-                                    //      Need a better story for smi versioning of ValueUtilsSmi post-VS2008
-                                    SmiContextFactory.Sql2008Version
-#endif
-                                    );
+                                    fieldMetaData.SqlDbType, fieldMetaData.IsMultiValued, cellValue, fieldMetaData.Type);
                         }
                         SetCompatibleValueV200(sink, setters, i, fieldMetaData, cellValue, cellTypes[i], 0, null);
                     }

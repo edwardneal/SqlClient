@@ -55,10 +55,23 @@ namespace Microsoft.Data.SqlClient.Server
 #if NET
         [return: DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicProperties | DynamicallyAccessedMemberTypes.PublicFields)]
 #endif
-        public virtual Type GetFieldType(int ordinal) => GetFieldTypeFrameworkSpecific(ordinal);
+        public virtual Type GetFieldType(int ordinal)
+        {
+            SqlMetaData md = GetSqlMetaData(ordinal);
+#if NETFRAMEWORK
+            if (md.SqlDbType == SqlDbType.Udt)
+            {
+                return md.Type;
+            }
+            else
+#endif
+            {
+                return MetaType.GetMetaTypeFromSqlDbType(md.SqlDbType, false).ClassType;
+            }
+        }
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/GetValue/*' />
-        public virtual object GetValue(int ordinal) => GetValueFrameworkSpecific(ordinal);
+        public virtual object GetValue(int ordinal) => ValueUtilsSmi.GetValue200(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal));
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/GetValues/*' />
         public virtual int GetValues(object[] values)
@@ -178,7 +191,7 @@ namespace Microsoft.Data.SqlClient.Server
         public virtual Type GetSqlFieldType(int ordinal) => MetaType.GetMetaTypeFromSqlDbType(GetSqlMetaData(ordinal).SqlDbType, false).SqlType;
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/GetSqlValue/*' />
-        public virtual object GetSqlValue(int ordinal) => GetSqlValueFrameworkSpecific(ordinal);
+        public virtual object GetSqlValue(int ordinal) => ValueUtilsSmi.GetSqlValue200(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal));
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/GetSqlValues/*' />
         public virtual int GetSqlValues(object[] values)
@@ -201,10 +214,10 @@ namespace Microsoft.Data.SqlClient.Server
         public virtual SqlBinary GetSqlBinary(int ordinal) => ValueUtilsSmi.GetSqlBinary(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal));
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/GetSqlBytes/*' />
-        public virtual SqlBytes GetSqlBytes(int ordinal) => GetSqlBytesFrameworkSpecific(ordinal);
+        public virtual SqlBytes GetSqlBytes(int ordinal) => ValueUtilsSmi.GetSqlBytes(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal));
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/GetSqlXml/*' />
-        public virtual SqlXml GetSqlXml(int ordinal) => GetSqlXmlFrameworkSpecific(ordinal);
+        public virtual SqlXml GetSqlXml(int ordinal) => ValueUtilsSmi.GetSqlXml(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal));
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/GetSqlBoolean/*' />
         public virtual SqlBoolean GetSqlBoolean(int ordinal) => ValueUtilsSmi.GetSqlBoolean(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal));
@@ -213,7 +226,7 @@ namespace Microsoft.Data.SqlClient.Server
         public virtual SqlByte GetSqlByte(int ordinal) => ValueUtilsSmi.GetSqlByte(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal));
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/GetSqlChars/*' />
-        public virtual SqlChars GetSqlChars(int ordinal) => GetSqlCharsFrameworkSpecific(ordinal);
+        public virtual SqlChars GetSqlChars(int ordinal) => ValueUtilsSmi.GetSqlChars(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal));
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/GetSqlInt16/*' />
         public virtual SqlInt16 GetSqlInt16(int ordinal) => ValueUtilsSmi.GetSqlInt16(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal));
@@ -247,10 +260,61 @@ namespace Microsoft.Data.SqlClient.Server
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/SetValues/*' />
         // ISqlUpdateableRecord Implementation
-        public virtual int SetValues(params object[] values) => SetValuesFrameworkSpecific(values);
+        public virtual int SetValues(params object[] values)
+        {
+            if (values == null)
+            {
+                throw ADP.ArgumentNull(nameof(values));
+            }
+
+            // Allow values array longer than FieldCount, just ignore the extra cells.
+            int copyLength = (values.Length > FieldCount) ? FieldCount : values.Length;
+
+            ExtendedClrTypeCode[] typeCodes = new ExtendedClrTypeCode[copyLength];
+
+            // Verify all data values as acceptable before changing current state.
+            for (int i = 0; i < copyLength; i++)
+            {
+                SqlMetaData metaData = GetSqlMetaData(i);
+                typeCodes[i] = MetaDataUtilsSmi.DetermineExtendedTypeCodeForUseWithSqlDbType(
+                    metaData.SqlDbType,
+                    isMultiValued: false,
+                    values[i],
+                    metaData.Type
+                );
+                if (typeCodes[i] == ExtendedClrTypeCode.Invalid)
+                {
+                    throw ADP.InvalidCast();
+                }
+            }
+
+            // Now move the data (it'll only throw if someone plays with the values array between
+            //      the validation loop and here, or if an invalid UDT was sent).
+            for (int i = 0; i < copyLength; i++)
+            {
+                ValueUtilsSmi.SetCompatibleValueV200(_eventSink, _recordBuffer, i, GetSmiMetaData(i), values[i], typeCodes[i], offset: 0, peekAhead: null);
+            }
+
+            return copyLength;
+        }
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/SetValue/*' />
-        public virtual void SetValue(int ordinal, object value) => SetValueFrameworkSpecific(ordinal, value);
+        public virtual void SetValue(int ordinal, object value)
+        {
+            SqlMetaData metaData = GetSqlMetaData(ordinal);
+            ExtendedClrTypeCode typeCode = MetaDataUtilsSmi.DetermineExtendedTypeCodeForUseWithSqlDbType(
+                metaData.SqlDbType,
+                isMultiValued: false,
+                value,
+                metaData.Type
+            );
+            if (typeCode == ExtendedClrTypeCode.Invalid)
+            {
+                throw ADP.InvalidCast();
+            }
+
+            ValueUtilsSmi.SetCompatibleValueV200(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal), value, typeCode, offset: 0, peekAhead: null);
+        }
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/SetBoolean/*' />
         public virtual void SetBoolean(int ordinal, bool value) => ValueUtilsSmi.SetBoolean(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal), value);
@@ -291,10 +355,10 @@ namespace Microsoft.Data.SqlClient.Server
         public virtual void SetDateTime(int ordinal, DateTime value) => ValueUtilsSmi.SetDateTime(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal), value);
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/SetTimeSpan/*' />
-        public virtual void SetTimeSpan(int ordinal, TimeSpan value) => SetTimeSpanFrameworkSpecific(ordinal, value);
+        public virtual void SetTimeSpan(int ordinal, TimeSpan value) => ValueUtilsSmi.SetTimeSpan(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal), value);
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/SetDateTimeOffset/*' />
-        public virtual void SetDateTimeOffset(int ordinal, DateTimeOffset value) => SetDateTimeOffsetFrameworkSpecific(ordinal, value);
+        public virtual void SetDateTimeOffset(int ordinal, DateTimeOffset value) => ValueUtilsSmi.SetDateTimeOffset(_eventSink, _recordBuffer, ordinal, GetSmiMetaData(ordinal), value);
 
         /// <include file='../../../../../../../doc/snippets/Microsoft.Data.SqlClient.Server/SqlDataRecord.xml' path='docs/members[@name="SqlDataRecord"]/SetDBNull/*' />
         public virtual void SetDBNull(int ordinal)
@@ -366,9 +430,6 @@ namespace Microsoft.Data.SqlClient.Server
 
             _columnMetaData = new SqlMetaData[metaData.Length];
             _columnSmiMetaData = new SmiExtendedMetaData[metaData.Length];
-#if NETFRAMEWORK
-            ulong smiVersion = SmiVersion;
-#endif
             for (int i = 0; i < _columnSmiMetaData.Length; i++)
             {
                 if (metaData[i] == null)
@@ -377,12 +438,6 @@ namespace Microsoft.Data.SqlClient.Server
                 }
                 _columnMetaData[i] = metaData[i];
                 _columnSmiMetaData[i] = MetaDataUtilsSmi.SqlMetaDataToSmiExtendedMetaData(_columnMetaData[i]);
-#if NETFRAMEWORK
-                if (!MetaDataUtilsSmi.IsValidForSmiVersion(_columnSmiMetaData[i], smiVersion))
-                {
-                    throw ADP.VersionDoesNotSupportDataType(_columnSmiMetaData[i].TypeName);
-                }
-#endif
             }
 
             _eventSink = new SmiEventSink_Default();

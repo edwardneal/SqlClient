@@ -1082,11 +1082,6 @@ namespace Microsoft.Data.SqlClient
             return e;
         }
 
-        internal static Exception SqlDepCannotBeCreatedInProc()
-        {
-            return ADP.InvalidOperation(StringsHelper.GetString(Strings.SqlNotify_SqlDepCannotBeCreatedInProc));
-        }
-
         static internal Exception SqlNotificationException(SqlNotificationEventArgs notify)
         {
             return ADP.InvalidOperation(StringsHelper.GetString(Strings.SQLNotify_ErrorFormat, notify.Type, notify.Info, notify.Source));
@@ -2420,15 +2415,6 @@ namespace Microsoft.Data.SqlClient
         {
             return ADP.InvalidOperation(StringsHelper.GetString(Strings.SQL_ContextConnectionIsUnsupported));
         }
-        static internal Exception ContextUnavailableOutOfProc()
-        {
-            return ADP.InvalidOperation(StringsHelper.GetString(Strings.SQL_ContextUnavailableOutOfProc));
-        }
-
-        static internal Exception UserInstanceNotAvailableInProc()
-        {
-            return ADP.InvalidOperation(StringsHelper.GetString(Strings.SQL_UserInstanceNotAvailableInProc));
-        }
         static internal Exception ArgumentLengthMismatch(string arg1, string arg2)
         {
             return ADP.Argument(StringsHelper.GetString(Strings.SQL_ArgumentLengthMismatch, arg1, arg2));
@@ -2750,12 +2736,6 @@ namespace Microsoft.Data.SqlClient
                 return _getPromotedToken.Value;
             }
         }
-    }
-
-    internal static class InOutOfProcHelper
-    {
-        internal static bool InProc
-            => false;
     }
 }
 
