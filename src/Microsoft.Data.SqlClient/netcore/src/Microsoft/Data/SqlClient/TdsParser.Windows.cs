@@ -4,6 +4,7 @@
 
 using System;
 using System.Diagnostics;
+using Interop.Windows.Sni;
 using Microsoft.Data.SqlClient.SNI;
 
 namespace Microsoft.Data.SqlClient
@@ -24,6 +25,10 @@ namespace Microsoft.Data.SqlClient
 
             _pMarsPhysicalConObj.IncrementPendingCallbacks();
             SessionHandle handle = _pMarsPhysicalConObj.SessionHandle;
+            // we do not need to consider partial packets when making this read because we
+            // expect this read to pend. a partial packet should not exist at setup of the
+            // parser
+            Debug.Assert(_physicalStateObj.PartialPacket==null);
             temp = _pMarsPhysicalConObj.ReadAsync(handle, out error);
 
             Debug.Assert(temp.Type == PacketHandle.NativePointerType, "unexpected packet type when requiring NativePointer");
@@ -74,7 +79,7 @@ namespace Microsoft.Data.SqlClient
             }
             else
             {
-                SNINativeMethodWrapper.SNIGetLastError(out SNINativeMethodWrapper.SNI_Error sniError);
+                SniNativeWrapper.SniGetLastError(out SniError sniError);
                 details.sniErrorNumber = sniError.sniError;
                 details.errorMessage = sniError.errorMessage;
                 details.nativeError = sniError.nativeError;

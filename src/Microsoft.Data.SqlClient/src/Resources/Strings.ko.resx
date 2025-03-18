@@ -2884,7 +2884,7 @@
     <value>컨텍스트 연결은 Type System Version=SQL Server 2000을 지원하지 않습니다.</value>
   </data>
   <data name="SQL_ContextConnectionIsUnsupported" xml:space="preserve">
-    <value>Connecting to the context connection using Microsoft.Data.SqlClient is not supported.</value>
+    <value>Microsoft.Data.SqlClient를 사용하여 컨텍스트 연결에 연결할 수 없습니다.</value>
   </data>
   <data name="SQL_ContextConnectionIsInUse" xml:space="preserve">
     <value>컨텍스트 연결이 이미 사용 중입니다.</value>
@@ -4745,5 +4745,11 @@
   </data>
   <data name="SQL_JsonDocumentNotSupportedOnColumnType" xml:space="preserve">
     <value>열 '{0}'의 JsonDocument를 가져오려는 시도가 잘못되었습니다. JsonDocument는 json 형식의 열에 대해서만 지원됩니다.</value>
+  </data>
+  <data name="ArrayBufferWriterAdvancedTooFar" xml:space="preserve">
+    <value>버퍼가 너무 멉니다. {0}</value>
+  </data>
+  <data name="ArrayBufferWriterMaximumSizeExceeded" xml:space="preserve">
+    <value>버퍼 최대 크기 초과: {0}</value>
   </data>
 </root>

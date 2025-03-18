@@ -2884,7 +2884,7 @@
     <value>Připojení kontextu nepodporuje nastavení Type System Version=SQL Server 2000.</value>
   </data>
   <data name="SQL_ContextConnectionIsUnsupported" xml:space="preserve">
-    <value>Connecting to the context connection using Microsoft.Data.SqlClient is not supported.</value>
+    <value>Připojení ke kontextu pomocí Microsoft.Data.SqlClient není podporováno.</value>
   </data>
   <data name="SQL_ContextConnectionIsInUse" xml:space="preserve">
     <value>Připojení kontextu se už používá.</value>
@@ -4745,5 +4745,11 @@
   </data>
   <data name="SQL_JsonDocumentNotSupportedOnColumnType" xml:space="preserve">
     <value>Neplatný pokus o získání třídy JsonDocument ve sloupci {0}. Třída JsonDocument se podporuje jenom pro sloupce typu json.</value>
+  </data>
+  <data name="ArrayBufferWriterAdvancedTooFar" xml:space="preserve">
+    <value>Velikost vyrovnávací paměti se příliš zvýšila {0}</value>
+  </data>
+  <data name="ArrayBufferWriterMaximumSizeExceeded" xml:space="preserve">
+    <value>Byla překročena maximální velikost vyrovnávací paměti: {0}</value>
   </data>
 </root>

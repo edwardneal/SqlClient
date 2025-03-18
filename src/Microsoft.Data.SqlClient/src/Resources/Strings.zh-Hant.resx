@@ -2884,7 +2884,7 @@
     <value>此內容連接不支援 Type System Version=SQL Server 2000。</value>
   </data>
   <data name="SQL_ContextConnectionIsUnsupported" xml:space="preserve">
-    <value>Connecting to the context connection using Microsoft.Data.SqlClient is not supported.</value>
+    <value>不支援使用 Microsoft.Data.SqlClient 連線至內容連線。</value>
   </data>
   <data name="SQL_ContextConnectionIsInUse" xml:space="preserve">
     <value>此內容連接已在使用中。</value>
@@ -4745,5 +4745,11 @@
   </data>
   <data name="SQL_JsonDocumentNotSupportedOnColumnType" xml:space="preserve">
     <value>在資料行 '{0}' 上取得 JsonDocument 的嘗試無效。JsonDocument 僅支援 JSON 類型的資料行。</value>
+  </data>
+  <data name="ArrayBufferWriterAdvancedTooFar" xml:space="preserve">
+    <value>緩衝區進階超出範圍 {0}</value>
+  </data>
+  <data name="ArrayBufferWriterMaximumSizeExceeded" xml:space="preserve">
+    <value>已超過緩衝區大小上限: {0}</value>
   </data>
 </root>

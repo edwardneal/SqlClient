@@ -146,12 +146,14 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
             Assert.Equal(0, SqlClientEventSourceProps.StasisConnections);
         }
 
+        [ActiveIssue("https://github.com/dotnet/SqlClient/issues/3031")]
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup))]
         public void EventCounter_ReclaimedConnectionsCounter_Functional()
         {
             // clean pools and pool groups
             ClearConnectionPools();
             var stringBuilder = new SqlConnectionStringBuilder(DataTestUtility.TCPConnectionString) { Pooling = true, MaxPoolSize = 1 };
+            stringBuilder.ConnectTimeout = Math.Max(stringBuilder.ConnectTimeout, 30);
 
             long rc = SqlClientEventSourceProps.ReclaimedConnections;
 

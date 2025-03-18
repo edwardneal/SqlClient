@@ -87,7 +87,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
             }
         }
 
-#if NET6_0_OR_GREATER
+#if !NETFRAMEWORK
         [ConditionalFact(nameof(IsSPNPortNumberTestForTCP))]
         public static void SPNTestForTCPMustReturnPortNumber()
         {
@@ -212,9 +212,9 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
             string serverSPN = "";
             MethodInfo getSqlServerSPNs = sniProxyObj.GetType().GetMethod("GetSqlServerSPNs", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic, null, CallingConventions.Any, getSqlServerSPNsTypesArray, null);
 
-            byte[][] result = (byte[][])getSqlServerSPNs.Invoke(sniProxyObj, new object[] { dataSrcInfo, serverSPN });
+            string[] result = (string[])getSqlServerSPNs.Invoke(sniProxyObj, new object[] { dataSrcInfo, serverSPN });
 
-            string spnInfo = Encoding.Unicode.GetString(result[0]);
+            string spnInfo = result[0];
 
             return spnInfo;
         }

@@ -11,6 +11,7 @@ using System.IO;
 using System.Runtime.Versioning;
 using Microsoft.Data.Common;
 using Microsoft.Data.ProviderBase;
+using Microsoft.Data.SqlClient.ConnectionPool;
 using Microsoft.Data.SqlClient.Server;
 
 namespace Microsoft.Data.SqlClient
@@ -101,10 +102,13 @@ namespace Microsoft.Data.SqlClient
                         // NOTE: Retrieve <UserInstanceName> here. This user instance name will be used below to connect to the Sql Express User Instance.
                         instanceName = sseConnection.InstanceName;
 
-                        if (!instanceName.StartsWith("\\\\.\\", StringComparison.Ordinal))
-                        {
-                            throw SQL.NonLocalSSEInstance();
-                        }
+                            // Set future transient fault handling based on connection options
+                            sqlOwningConnection._applyTransientFaultHandling = opt != null && opt.ConnectRetryCount > 0;
+
+                            if (!instanceName.StartsWith("\\\\.\\", StringComparison.Ordinal))
+                            {
+                                throw SQL.NonLocalSSEInstance();
+                            }
 
                         if (pool != null)
                         { // Pooled connection - cache result

@@ -2884,7 +2884,7 @@
     <value>La connexion du contexte ne prend pas en charge Type System Version=SQL Server 2000.</value>
   </data>
   <data name="SQL_ContextConnectionIsUnsupported" xml:space="preserve">
-    <value>Connecting to the context connection using Microsoft.Data.SqlClient is not supported.</value>
+    <value>La connexion à la connexion de contexte à l’aide de Microsoft.Data.SqlClient n’est pas prise en charge.</value>
   </data>
   <data name="SQL_ContextConnectionIsInUse" xml:space="preserve">
     <value>La connexion du contexte est déjà en cours d'utilisation.</value>
@@ -4745,5 +4745,11 @@
   </data>
   <data name="SQL_JsonDocumentNotSupportedOnColumnType" xml:space="preserve">
     <value>Tentative non valide d’obtention de JsonDocument sur la colonne « {0} ». JsonDocument est uniquement pris en charge pour les colonnes de type JSON.</value>
+  </data>
+  <data name="ArrayBufferWriterAdvancedTooFar" xml:space="preserve">
+    <value>Mémoire tampon avancée trop loin {0}</value>
+  </data>
+  <data name="ArrayBufferWriterMaximumSizeExceeded" xml:space="preserve">
+    <value>Taille maximale de la mémoire tampon dépassée : {0}</value>
   </data>
 </root>

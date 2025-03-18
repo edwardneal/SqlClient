@@ -25,11 +25,11 @@ using Microsoft.SqlServer.Server;
 using System.Security.Authentication;
 
 #if NETFRAMEWORK
-using Microsoft.Win32;
 using System.Reflection;
 using System.Runtime.ConstrainedExecution;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using Interop.Windows.Kernel32;
 #endif
 
 namespace Microsoft.Data.Common
@@ -945,7 +945,7 @@ namespace Microsoft.Data.Common
 
             SqlDependencyObtainProcessDispatcherFailureObjectHandle = 50,
             SqlDependencyProcessDispatcherFailureCreateInstance = 51,
-            SqlDependencyProcessDispatcherFailureAppDomain = 52,
+            
             SqlDependencyCommandHashIsNotAssociatedWithNotification = 53,
 
             UnknownTransactionFailure = 60,
@@ -1486,7 +1486,7 @@ namespace Microsoft.Data.Common
                                 // query for the required length
                                 // VSTFDEVDIV 479551 - ensure that GetComputerNameEx does not fail with unexpected values and that the length is positive
                 int getComputerNameExError = 0;
-                if (0 == SafeNativeMethods.GetComputerNameEx(ComputerNameDnsFullyQualified, null, ref length))
+                if (0 == Kernel32Safe.GetComputerNameEx(ComputerNameDnsFullyQualified, null, ref length))
                 {
                     getComputerNameExError = Marshal.GetLastWin32Error();
                 }
@@ -1497,7 +1497,7 @@ namespace Microsoft.Data.Common
 
                 StringBuilder buffer = new(length);
                 length = buffer.Capacity;
-                if (0 == SafeNativeMethods.GetComputerNameEx(ComputerNameDnsFullyQualified, buffer, ref length))
+                if (0 == Kernel32Safe.GetComputerNameEx(ComputerNameDnsFullyQualified, buffer, ref length))
                 {
                     throw ADP.ComputerNameEx(Marshal.GetLastWin32Error());
                 }

@@ -30,6 +30,7 @@ Once the environment is setup properly, execute the desired set of commands belo
 |`RunTests`|Runs the functional and manual tests for the .NET Framework and .NET drivers|
 |`RunFunctionalTests`|Runs just the functional tests for the .NET Framework and .NET drivers|
 |`RunManualTests`|Runs just the manual tests for the .NET Framework and .NET drivers|
+|`BuildAkv`|Builds the Azure Key Vault Provider package for all supported platforms.|
 
 
 ### Parameters
@@ -306,7 +307,7 @@ To run the same:
     The program 'dotnet' has exited with code 0 (0x0).
     ```
 
-5. Now you can write code in [Program.cs](/src/Microsoft.Data.SqlClient/tests/DockerLinuxTest/Program.cs) to debug SqlClient on Linux!
+5. Now you can write code in [Program.cs](/src/Microsoft.Data.SqlClient/tests/Docker/DockerLinuxTest/Program.cs) to debug SqlClient on Linux!
 
 ### Troubleshooting Docker issues
 
