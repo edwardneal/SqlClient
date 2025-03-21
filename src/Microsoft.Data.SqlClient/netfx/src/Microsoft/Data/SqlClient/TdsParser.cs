@@ -942,7 +942,7 @@ namespace Microsoft.Data.SqlClient
                         offset += actIdSize;
                         optionDataSize += actIdSize;
 
-                        SqlClientEventSource.Log.TryTraceEvent("<sc.TdsParser.SendPreLoginHandshake|INFO> ClientConnectionID {0}, ActivityID {1}", _connHandler._clientConnectionId, actId);
+                        SqlClientEventSource.Log.TryTraceEvent("<sc.TdsParser.SendPreLoginHandshake|INFO> ClientConnectionID {0}, ActivityID {1}", _connHandler?._clientConnectionId, actId);
                         break;
 
                     case (int)PreLoginOptions.FEDAUTHREQUIRED:
@@ -1276,7 +1276,7 @@ namespace Microsoft.Data.SqlClient
             SqlClientEventSource.Log.TryAdvancedTraceEvent("<sc.TdsParser.Deactivate|ADV> {0} deactivating", ObjectID);
             if (SqlClientEventSource.Log.IsStateDumpEnabled())
             {
-                SqlClientEventSource.Log.StateDumpEvent("<sc.TdsParser.Deactivate|STATE> {0}, {1}", ObjectID, TraceString());
+                SqlClientEventSource.Log.StateDumpEvent("<sc.TdsParser.Deactivate|STATE> {0} {1}", ObjectID, TraceString());
             }
 
             if (MARSOn)
@@ -1430,6 +1430,7 @@ namespace Microsoft.Data.SqlClient
             //_errorAndWarningsLock lock is implemented inside GetFullErrorAndWarningCollection
             SqlErrorCollection temp = stateObj.GetFullErrorAndWarningCollection(out breakConnection);
 
+            Debug.Assert(temp != null, "TdsParser::ThrowExceptionAndWarning: null errors collection!");
             Debug.Assert(temp.Count > 0, "TdsParser::ThrowExceptionAndWarning called with no exceptions or warnings!");
             if (temp.Count == 0)
             {
@@ -1456,7 +1457,6 @@ namespace Microsoft.Data.SqlClient
                 }
             }
 
-            Debug.Assert(temp != null, "TdsParser::ThrowExceptionAndWarning: 0 errors in collection");
             if (temp != null && temp.Count > 0)
             {
                 // Construct the exception now that we've collected all the errors
@@ -1589,7 +1589,7 @@ namespace Microsoft.Data.SqlClient
              * !=null       | == 0     | replace text left of errorMessage
             */
 
-            Debug.Assert(!ADP.IsEmpty(errorMessage), "Empty error message received from SNI");
+            Debug.Assert(!string.IsNullOrEmpty(errorMessage), "Empty error message received from SNI");
 
             string sqlContextInfo = StringsHelper.GetString(Enum.GetName(typeof(SniContext), stateObj.SniContext));
             string providerRid = string.Format("SNI_PN{0}", (int)details.provider);
@@ -3967,7 +3967,7 @@ namespace Microsoft.Data.SqlClient
             tokenLen -= sizeof(uint); // remaining length is shortened since we read optCount
             if (SqlClientEventSource.Log.IsAdvancedTraceOn())
             {
-                SqlClientEventSource.Log.TryAdvancedTraceEvent("<sc.TdsParser.TryProcessFedAuthInfo|ADV> CountOfInfoIDs = {0}", optionsCount.ToString(CultureInfo.InvariantCulture));
+                SqlClientEventSource.Log.AdvancedTraceEvent("<sc.TdsParser.TryProcessFedAuthInfo|ADV> CountOfInfoIDs = {0}", optionsCount.ToString(CultureInfo.InvariantCulture));
             }
             if (tokenLen > 0)
             {
@@ -4698,6 +4698,8 @@ namespace Microsoft.Data.SqlClient
                     {
                         codePage = ci.TextInfo.ANSICodePage;
                     }
+
+                    Debug.Assert(codePage >= 0, $"Invalid code page. codePage: {codePage}. cultureId: {cultureId}");
                 }
             }
 
@@ -10420,9 +10422,9 @@ namespace Microsoft.Data.SqlClient
                     metaData.SqlDbType, metaData.IsMultiValued, value, null, SmiContextFactory.Sql2008Version);
             }
 
-            var sendDefaultValue = sendDefault ? 1 : 0;
             if (advancedTraceIsOn)
             {
+                int sendDefaultValue = sendDefault ? 1 : 0;
                 SqlClientEventSource.Log.TryAdvancedTraceEvent("<sc.TdsParser.WriteSmiParameter|ADV> {0}, Sending parameter '{1}', default flag={2}, metadata:{3}", ObjectID, param.ParameterName, sendDefaultValue, metaData.TraceString(3));
             }
 
@@ -11732,6 +11734,8 @@ namespace Microsoft.Data.SqlClient
 
                 case TdsEnums.SQLUNIQUEID:
                     {
+                        Debug.Assert(actualLength == 16, "Invalid length for guid type in com+ object");
+
                         byte[] b;
                         if (value is Guid guid)
                         {
@@ -11742,7 +11746,6 @@ namespace Microsoft.Data.SqlClient
                             b = ((SqlGuid)value).ToByteArray();
                         }
 
-                        Debug.Assert((actualLength == b.Length) && (actualLength == 16), "Invalid length for guid type in com+ object");
                         stateObj.WriteByteArray(b, actualLength, 0);
                         break;
                     }

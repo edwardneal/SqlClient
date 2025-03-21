@@ -855,6 +855,7 @@ namespace Microsoft.Data.SqlClient
                         int actIdSize = GUID_SIZE + sizeof(uint);
                         offset += actIdSize;
                         optionDataSize += actIdSize;
+
                         SqlClientEventSource.Log.TryTraceEvent("<sc.TdsParser.SendPreLoginHandshake|INFO> ClientConnectionID {0}, ActivityID {1}", _connHandler?._clientConnectionId, actId);
                         break;
 
@@ -1329,12 +1330,12 @@ namespace Microsoft.Data.SqlClient
             //_errorAndWarningsLock lock is implemented inside GetFullErrorAndWarningCollection
             SqlErrorCollection temp = stateObj.GetFullErrorAndWarningCollection(out breakConnection);
 
+            Debug.Assert(temp != null, "TdsParser::ThrowExceptionAndWarning: null errors collection!");
+            Debug.Assert(temp.Count > 0, "TdsParser::ThrowExceptionAndWarning called with no exceptions or warnings!");
             if (temp.Count == 0)
             {
                 SqlClientEventSource.Log.TryTraceEvent("<sc.TdsParser.ThrowExceptionAndWarning|ERR> Potential multi-threaded misuse of connection, unexpectedly empty warnings/errors under lock {0}", ObjectID);
             }
-            Debug.Assert(temp != null, "TdsParser::ThrowExceptionAndWarning: null errors collection!");
-            Debug.Assert(temp.Count > 0, "TdsParser::ThrowExceptionAndWarning called with no exceptions or warnings!");
             Debug.Assert(_connHandler != null, "TdsParser::ThrowExceptionAndWarning called with null connectionHandler!");
 
             // Don't break the connection if it is already closed
@@ -1497,12 +1498,12 @@ namespace Microsoft.Data.SqlClient
 
                 if (TdsParserStateObjectFactory.UseManagedSNI)
                 {
-                    Debug.Assert(!string.IsNullOrEmpty(details.errorMessage) || details.sniErrorNumber != 0, "Empty error message received from SNI");
+                    Debug.Assert(!string.IsNullOrEmpty(errorMessage) || details.sniErrorNumber != 0, "Empty error message received from SNI");
                     SqlClientEventSource.Log.TryAdvancedTraceEvent("<sc.TdsParser.ProcessSNIError |ERR|ADV > Empty error message received from SNI. Error Message = {0}, SNI Error Number ={1}", details.errorMessage, details.sniErrorNumber);
                 }
                 else
                 {
-                    Debug.Assert(!string.IsNullOrEmpty(details.errorMessage), "Empty error message received from SNI");
+                    Debug.Assert(!string.IsNullOrEmpty(errorMessage), "Empty error message received from SNI");
                     SqlClientEventSource.Log.TryAdvancedTraceEvent("<sc.TdsParser.ProcessSNIError |ERR|ADV > Empty error message received from SNI. Error Message = {0}", details.errorMessage);
                 }
 
