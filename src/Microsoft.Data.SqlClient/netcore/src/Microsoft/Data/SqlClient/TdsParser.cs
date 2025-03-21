@@ -1010,7 +1010,7 @@ namespace Microsoft.Data.SqlClient
                         payloadOffset = payload[offset++] << 8 | payload[offset++];
                         payloadLength = payload[offset++] << 8 | payload[offset++];
 
-                        EncryptionOptions serverOption = (EncryptionOptions)payload[payloadOffset];
+                        EncryptionOptions serverOption = (EncryptionOptions)payload[payloadOffset] & EncryptionOptions.OPTIONS_MASK;
 
                         /* internal enum EncryptionOptions {
                             OFF,
@@ -1141,8 +1141,8 @@ namespace Microsoft.Data.SqlClient
                 }
             }
 
-            if (_encryptionOption == EncryptionOptions.ON ||
-                _encryptionOption == EncryptionOptions.LOGIN)
+            if ((_encryptionOption & EncryptionOptions.OPTIONS_MASK) == EncryptionOptions.ON ||
+                (_encryptionOption & EncryptionOptions.OPTIONS_MASK) == EncryptionOptions.LOGIN)
             {
                 if (!serverSupportsEncryption)
                 {

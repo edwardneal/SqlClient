@@ -1117,7 +1117,7 @@ namespace Microsoft.Data.SqlClient
                         payloadOffset = payload[offset++] << 8 | payload[offset++];
                         payloadLength = payload[offset++] << 8 | payload[offset++];
 
-                        EncryptionOptions serverOption = (EncryptionOptions)payload[payloadOffset];
+                        EncryptionOptions serverOption = (EncryptionOptions)payload[payloadOffset] & EncryptionOptions.OPTIONS_MASK;
 
                         /* internal enum EncryptionOptions {
                             OFF,
@@ -1129,17 +1129,17 @@ namespace Microsoft.Data.SqlClient
                         } */
 
                         // Any response other than NOT_SUP means the server supports encryption.
-                        serverSupportsEncryption = (serverOption & EncryptionOptions.OPTIONS_MASK) != EncryptionOptions.NOT_SUP;
+                        serverSupportsEncryption = serverOption != EncryptionOptions.NOT_SUP;
 
-                        switch (_encryptionOption & EncryptionOptions.OPTIONS_MASK)
+                        switch (_encryptionOption)
                         {
                             case (EncryptionOptions.OFF):
-                                if ((serverOption & EncryptionOptions.OPTIONS_MASK) == EncryptionOptions.OFF)
+                                if (serverOption == EncryptionOptions.OFF)
                                 {
                                     // Only encrypt login.
                                     _encryptionOption = EncryptionOptions.LOGIN | (_encryptionOption & ~EncryptionOptions.OPTIONS_MASK);
                                 }
-                                else if ((serverOption & EncryptionOptions.OPTIONS_MASK) == EncryptionOptions.REQ)
+                                else if (serverOption == EncryptionOptions.REQ)
                                 {
                                     // Encrypt all.
                                     _encryptionOption = EncryptionOptions.ON | (_encryptionOption & ~EncryptionOptions.OPTIONS_MASK);
@@ -1148,7 +1148,7 @@ namespace Microsoft.Data.SqlClient
                                 break;
 
                             case (EncryptionOptions.NOT_SUP):
-                                if ((serverOption & EncryptionOptions.OPTIONS_MASK) == EncryptionOptions.REQ)
+                                if (serverOption == EncryptionOptions.REQ)
                                 {
                                     // Server requires encryption, but client does not support it.
                                     _physicalStateObj.AddError(new SqlError(TdsEnums.ENCRYPTION_NOT_SUPPORTED, (byte)0x00, TdsEnums.FATAL_ERROR_CLASS, _server, SQLMessage.EncryptionNotSupportedByClient(), "", 0));
@@ -1159,7 +1159,7 @@ namespace Microsoft.Data.SqlClient
                                 break;
                             default:
                                 // Any other client option needs encryption
-                                if ((serverOption & EncryptionOptions.OPTIONS_MASK) == EncryptionOptions.NOT_SUP)
+                                if (serverOption == EncryptionOptions.NOT_SUP)
                                 {
                                     _physicalStateObj.AddError(new SqlError(TdsEnums.ENCRYPTION_NOT_SUPPORTED, (byte)0x00, TdsEnums.FATAL_ERROR_CLASS, _server, SQLMessage.EncryptionNotSupportedByServer(), "", 0));
                                     _physicalStateObj.Dispose();
