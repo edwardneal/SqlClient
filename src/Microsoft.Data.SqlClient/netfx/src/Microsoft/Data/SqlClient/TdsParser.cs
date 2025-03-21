@@ -4715,7 +4715,7 @@ namespace Microsoft.Data.SqlClient
                     SqlDataReader.SharedState sharedState = stateObj._readerState;
                     if (sharedState != null && sharedState._dataReady)
                     {
-                        var metadata = stateObj._cleanupMetaData;
+                        _SqlMetaDataSet metadata = stateObj._cleanupMetaData;
                         if (stateObj._partialHeaderBytesRead > 0)
                         {
                             TdsOperationStatus result = stateObj.TryProcessHeader();
