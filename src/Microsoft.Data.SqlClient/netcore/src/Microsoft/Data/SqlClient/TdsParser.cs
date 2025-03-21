@@ -6622,9 +6622,8 @@ namespace Microsoft.Data.SqlClient
         private TdsOperationStatus TryReadSqlDateTime(SqlBuffer value, byte tdsType, int length, byte scale, TdsParserStateObject stateObj)
         {
             Span<byte> datetimeBuffer = ((uint)length <= 16) ? stackalloc byte[16] : new byte[length];
-            TdsOperationStatus result;
 
-            result = stateObj.TryReadByteArray(datetimeBuffer, length);
+            TdsOperationStatus result = stateObj.TryReadByteArray(datetimeBuffer, length);
             if (result != TdsOperationStatus.Done)
             {
                 return result;

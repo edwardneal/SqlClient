@@ -2777,13 +2777,14 @@ namespace Microsoft.Data.SqlClient
             int processedLength = 0;
             SqlEnvChange head = null;
             SqlEnvChange tail = null;
+            TdsOperationStatus result;
 
             sqlEnvChange = null;
 
             while (tokenLength > processedLength)
             {
                 SqlEnvChange env = new SqlEnvChange();
-                TdsOperationStatus result = stateObj.TryReadByte(out env._type);
+                result = stateObj.TryReadByte(out env._type);
                 if (result != TdsOperationStatus.Done)
                 {
                     return result;
@@ -4171,11 +4172,10 @@ namespace Microsoft.Data.SqlClient
             out SqlReturnValue returnValue,
             SqlCommandColumnEncryptionSetting columnEncryptionSetting)
         {
-            TdsOperationStatus result;
             returnValue = null;
             SqlReturnValue rec = new SqlReturnValue();
             rec.length = length;        // In 2005 this length is -1
-            result = stateObj.TryReadUInt16(out _);
+            TdsOperationStatus result = stateObj.TryReadUInt16(out _);
             if (result != TdsOperationStatus.Done)
             {
                 return result;
@@ -4720,8 +4720,7 @@ namespace Microsoft.Data.SqlClient
                         _SqlMetaDataSet metadata = stateObj._cleanupMetaData;
                         if (stateObj._partialHeaderBytesRead > 0)
                         {
-                            TdsOperationStatus result = stateObj.TryProcessHeader();
-                            if (result != TdsOperationStatus.Done)
+                            if (stateObj.TryProcessHeader() != TdsOperationStatus.Done)
                             {
                                 throw SQL.SynchronousCallMayNotPend();
                             }
@@ -4729,8 +4728,7 @@ namespace Microsoft.Data.SqlClient
                         if (0 == sharedState._nextColumnHeaderToRead)
                         {
                             // i. user called read but didn't fetch anything
-                            TdsOperationStatus result = stateObj.Parser.TrySkipRow(stateObj._cleanupMetaData, stateObj);
-                            if (result != TdsOperationStatus.Done)
+                            if (stateObj.Parser.TrySkipRow(stateObj._cleanupMetaData, stateObj) != TdsOperationStatus.Done)
                             {
                                 throw SQL.SynchronousCallMayNotPend();
                             }
@@ -4744,8 +4742,7 @@ namespace Microsoft.Data.SqlClient
                                 {
                                     if (stateObj._longlen != 0)
                                     {
-                                        TdsOperationStatus result = TrySkipPlpValue(UInt64.MaxValue, stateObj, out _);
-                                        if (result != TdsOperationStatus.Done)
+                                        if (TrySkipPlpValue(ulong.MaxValue, stateObj, out _) != TdsOperationStatus.Done)
                                         {
                                             throw SQL.SynchronousCallMayNotPend();
                                         }
@@ -4754,13 +4751,11 @@ namespace Microsoft.Data.SqlClient
 
                                 else if (0 < sharedState._columnDataBytesRemaining)
                                 {
-                                    TdsOperationStatus result = stateObj.TrySkipLongBytes(sharedState._columnDataBytesRemaining);
-                                    if (result != TdsOperationStatus.Done)
+                                    if (stateObj.TrySkipLongBytes(sharedState._columnDataBytesRemaining) != TdsOperationStatus.Done)
                                     {
                                         throw SQL.SynchronousCallMayNotPend();
                                     }
                                 }
-
                             }
 
 
@@ -5108,9 +5103,10 @@ namespace Microsoft.Data.SqlClient
 
             // Read the cipher info table first
             SqlTceCipherInfoTable cipherTable = null;
+            TdsOperationStatus result;
             if (IsColumnEncryptionSupported)
             {
-                TdsOperationStatus result = TryProcessCipherInfoTable(stateObj, out cipherTable);
+                result = TryProcessCipherInfoTable(stateObj, out cipherTable);
                 if (result != TdsOperationStatus.Done)
                 {
                     metaData = null;
@@ -5122,7 +5118,7 @@ namespace Microsoft.Data.SqlClient
             _SqlMetaDataSet newMetaData = new _SqlMetaDataSet(cColumns, cipherTable);
             for (int i = 0; i < cColumns; i++)
             {
-                TdsOperationStatus result = TryCommonProcessMetaData(stateObj, newMetaData[i], cipherTable, fColMD: true, columnEncryptionSetting: columnEncryptionSetting);
+                result = TryCommonProcessMetaData(stateObj, newMetaData[i], cipherTable, fColMD: true, columnEncryptionSetting: columnEncryptionSetting);
                 if (result != TdsOperationStatus.Done)
                 {
                     metaData = null;
@@ -5332,10 +5328,9 @@ namespace Microsoft.Data.SqlClient
         {
             byte byteLen;
             uint userType;
-            TdsOperationStatus result;
 
             // read user type - 4 bytes 2005, 2 backwards
-            result = stateObj.TryReadUInt32(out userType);
+            TdsOperationStatus result = stateObj.TryReadUInt32(out userType);
             if (result != TdsOperationStatus.Done)
             {
                 return result;
@@ -5667,13 +5662,12 @@ namespace Microsoft.Data.SqlClient
             Debug.Assert(columns != null && columns.Length > 0, "no metadata available!");
 
             metaData = null;
-            TdsOperationStatus result;
 
             for (int i = 0; i < columns.Length; i++)
             {
                 _SqlMetaData col = columns[i];
 
-                result = stateObj.TryReadByte(out _);
+                TdsOperationStatus result = stateObj.TryReadByte(out _);
                 if (result != TdsOperationStatus.Done)
                 {
                     return result;
@@ -8243,6 +8237,7 @@ namespace Microsoft.Data.SqlClient
         internal TdsOperationStatus TryGetTokenLength(byte token, TdsParserStateObject stateObj, out int tokenLength)
         {
             Debug.Assert(token != 0, "0 length token!");
+            TdsOperationStatus result;
 
             switch (token)
             { // rules about SQLLenMask no longer apply to new tokens (as of 7.4)
@@ -8253,8 +8248,6 @@ namespace Microsoft.Data.SqlClient
                 case TdsEnums.SQLFEDAUTHINFO:
                     return stateObj.TryReadInt32(out tokenLength);
             }
-
-            TdsOperationStatus result;
 
             if (token == TdsEnums.SQLUDT)
             { // special case for UDTs
@@ -13534,8 +13527,8 @@ namespace Microsoft.Data.SqlClient
         {
             // Read and skip cb bytes or until  ReadPlpLength returns 0.
             int bytesSkipped;
-            totalBytesSkipped = 0;
             TdsOperationStatus result;
+            totalBytesSkipped = 0;
 
             if (stateObj._longlenleft == 0)
             {
