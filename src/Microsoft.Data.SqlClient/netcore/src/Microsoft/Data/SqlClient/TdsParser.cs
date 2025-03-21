@@ -1473,6 +1473,7 @@ namespace Microsoft.Data.SqlClient
                             // Connecting to a SQL Server instance using the MultiSubnetFailover connection option is only supported when using the TCP protocol.
                             SqlClientEventSource.Log.TryAdvancedTraceEvent("<sc.TdsParser.ProcessSNIError|ERR|ADV> Connecting to a SQL Server instance using the MultiSubnetFailover connection option is only supported when using the TCP protocol.");
                             throw SQL.MultiSubnetFailoverWithNonTcpProtocol();
+
                             // continue building SqlError instance
                     }
                 }

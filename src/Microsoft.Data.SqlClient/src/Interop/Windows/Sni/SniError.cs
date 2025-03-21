@@ -13,7 +13,7 @@ namespace Interop.Windows.Sni
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 261)]
         internal string errorMessage;
         internal uint nativeError;
-        internal uint sniError;
+        internal uint sniErrorNumber;
         [MarshalAs(UnmanagedType.LPWStr)]
         internal string fileName;
         [MarshalAs(UnmanagedType.LPWStr)]

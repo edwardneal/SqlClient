@@ -164,7 +164,7 @@ namespace Microsoft.Data.SqlClient.LocalDb
                                 SniNativeWrapper.SniGetLastError(out SniError sniError);
                                 throw CreateLocalDbException(
                                     errorMessage: StringsHelper.GetString("LocalDB_FailedGetDLLHandle"),
-                                    sniError: sniError.sniError);
+                                    sniError: sniError.sniErrorNumber);
                             }
                         }
                     }

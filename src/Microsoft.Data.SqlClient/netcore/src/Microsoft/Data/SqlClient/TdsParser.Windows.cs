@@ -80,7 +80,7 @@ namespace Microsoft.Data.SqlClient
             else
             {
                 SniNativeWrapper.SniGetLastError(out SniError sniError);
-                details.sniErrorNumber = sniError.sniError;
+                details.sniErrorNumber = sniError.sniErrorNumber;
                 details.errorMessage = sniError.errorMessage;
                 details.nativeError = sniError.nativeError;
                 details.provider = (int)sniError.provider;

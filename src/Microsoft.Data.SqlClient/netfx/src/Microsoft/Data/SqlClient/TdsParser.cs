@@ -1552,11 +1552,10 @@ namespace Microsoft.Data.SqlClient
             SniError details = new SniError();
             SniNativeWrapper.SniGetLastError(out details);
 
-            if (details.sniError != 0)
+            if (details.sniErrorNumber != 0)
             {
-
                 // handle special SNI error codes that are converted into exception which is not a SqlException.
-                switch (details.sniError)
+                switch (details.sniErrorNumber)
                 {
                     case SniErrors.MultiSubnetFailoverWithMoreThan64IPs:
                         // Connecting with the MultiSubnetFailover connection option to a SQL Server instance configured with more than 64 IP addresses is not supported.
@@ -1598,7 +1597,7 @@ namespace Microsoft.Data.SqlClient
             Debug.Assert(!string.IsNullOrEmpty(providerName), $"invalid providerResourceId '{providerRid}'");
             uint win32ErrorCode = details.nativeError;
 
-            if (details.sniError == 0)
+            if (details.sniErrorNumber == 0)
             {
                 // Provider error. The message from provider is preceeded with non-localizable info from SNI
                 // strip provider info from SNI
@@ -1629,17 +1628,17 @@ namespace Microsoft.Data.SqlClient
             else
             {
                 // SNI error. Replace the entire message.
-                errorMessage = SQL.GetSNIErrorMessage(details.sniError);
+                errorMessage = SQL.GetSNIErrorMessage(details.sniErrorNumber);
 
                 // If its a LocalDB error, then nativeError actually contains a LocalDB-specific error code, not a win32 error code
-                if (details.sniError == SniErrors.LocalDBErrorCode)
+                if (details.sniErrorNumber == SniErrors.LocalDBErrorCode)
                 {
                     errorMessage += LocalDbApi.GetLocalDbMessage((int)details.nativeError);
                     win32ErrorCode = 0;
                 }
             }
             errorMessage = string.Format("{0} (provider: {1}, error: {2} - {3})",
-                sqlContextInfo, providerName, (int)details.sniError, errorMessage);
+                sqlContextInfo, providerName, (int)details.sniErrorNumber, errorMessage);
 
             return new SqlError((int)details.nativeError, 0x00, TdsEnums.FATAL_ERROR_CLASS,
                                 _server, errorMessage, details.function, (int)details.lineNumber, win32ErrorCode);
