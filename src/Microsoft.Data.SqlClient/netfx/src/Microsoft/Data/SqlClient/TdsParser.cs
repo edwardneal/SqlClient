@@ -4643,7 +4643,6 @@ namespace Microsoft.Data.SqlClient
                 // This should be treated as an error and functionality switches into the following logic.
                 if (!success || codePage == 0)
                 {
-                    CultureInfo ci = null;
                     switch (cultureId)
                     {
                         case 0x10404: // zh-TW
@@ -4659,7 +4658,7 @@ namespace Microsoft.Data.SqlClient
 
                             try
                             {
-                                ci = new CultureInfo(cultureId);
+                                codePage = new CultureInfo(cultureId).TextInfo.ANSICodePage;
                                 success = true;
                             }
                             catch (ArgumentException e)
@@ -4670,7 +4669,7 @@ namespace Microsoft.Data.SqlClient
                         case 0x827:     // Mapping Non-supported Lithuanian code page to supported Lithuanian.
                             try
                             {
-                                ci = new CultureInfo(0x427);
+                                codePage = new CultureInfo(0x427).TextInfo.ANSICodePage;
                                 success = true;
                             }
                             catch (ArgumentException e)
@@ -4688,15 +4687,9 @@ namespace Microsoft.Data.SqlClient
                             break;
                     }
 
-                    // I don't believe we should still be in failure case, but just in case.
                     if (!success)
                     {
                         ThrowUnsupportedCollationEncountered(stateObj);
-                    }
-
-                    if (ci != null)
-                    {
-                        codePage = ci.TextInfo.ANSICodePage;
                     }
 
                     Debug.Assert(codePage >= 0, $"Invalid code page. codePage: {codePage}. cultureId: {cultureId}");
