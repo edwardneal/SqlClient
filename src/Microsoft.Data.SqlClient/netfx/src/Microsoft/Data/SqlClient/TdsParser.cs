@@ -8611,21 +8611,6 @@ namespace Microsoft.Data.SqlClient
             return totalLen;
         }
 
-        internal int WriteDataClassificationFeatureRequest(bool write /* if false just calculates the length */)
-        {
-            int len = 6; // 1byte = featureID, 4bytes = featureData length, 1 bytes = Version
-
-            if (write)
-            {
-                // Write Feature ID, length of the version# field and Sensitivity Classification Version#
-                _physicalStateObj.WriteByte(TdsEnums.FEATUREEXT_DATACLASSIFICATION);
-                WriteInt(1, _physicalStateObj);
-                _physicalStateObj.WriteByte(TdsEnums.DATA_CLASSIFICATION_VERSION_MAX_SUPPORTED);
-            }
-
-            return len; // size of data written
-        }
-
         internal int WriteTceFeatureRequest(bool write /* if false just calculates the length */)
         {
             int len = 6; // 1byte = featureID, 4bytes = featureData length, 1 bytes = Version
@@ -8641,20 +8626,6 @@ namespace Microsoft.Data.SqlClient
             return len; // size of data written
         }
 
-        internal int WriteGlobalTransactionsFeatureRequest(bool write /* if false just calculates the length */)
-        {
-            int len = 5; // 1byte = featureID, 4bytes = featureData length
-
-            if (write)
-            {
-                // Write Feature ID
-                _physicalStateObj.WriteByte(TdsEnums.FEATUREEXT_GLOBALTRANSACTIONS);
-                WriteInt(0, _physicalStateObj); // we don't send any data
-            }
-
-            return len;
-        }
-
         internal int WriteAzureSQLSupportFeatureRequest(bool write /* if false just calculates the length */)
         {
             int len = 6; // 1byte = featureID, 4bytes = featureData length, 1 bytes = featureData
@@ -8668,6 +8639,35 @@ namespace Microsoft.Data.SqlClient
                 WriteInt(s_featureExtDataAzureSQLSupportFeatureRequest.Length, _physicalStateObj);
 
                 _physicalStateObj.WriteByteArray(s_featureExtDataAzureSQLSupportFeatureRequest, s_featureExtDataAzureSQLSupportFeatureRequest.Length, 0);
+            }
+
+            return len;
+        }
+
+        internal int WriteDataClassificationFeatureRequest(bool write /* if false just calculates the length */)
+        {
+            int len = 6; // 1byte = featureID, 4bytes = featureData length, 1 bytes = Version
+
+            if (write)
+            {
+                // Write Feature ID, length of the version# field and Sensitivity Classification Version#
+                _physicalStateObj.WriteByte(TdsEnums.FEATUREEXT_DATACLASSIFICATION);
+                WriteInt(1, _physicalStateObj);
+                _physicalStateObj.WriteByte(TdsEnums.DATA_CLASSIFICATION_VERSION_MAX_SUPPORTED);
+            }
+
+            return len; // size of data written
+        }        
+
+        internal int WriteGlobalTransactionsFeatureRequest(bool write /* if false just calculates the length */)
+        {
+            int len = 5; // 1byte = featureID, 4bytes = featureData length
+
+            if (write)
+            {
+                // Write Feature ID
+                _physicalStateObj.WriteByte(TdsEnums.FEATUREEXT_GLOBALTRANSACTIONS);
+                WriteInt(0, _physicalStateObj); // we don't send any data
             }
 
             return len;
