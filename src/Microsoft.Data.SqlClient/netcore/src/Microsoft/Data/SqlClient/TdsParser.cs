@@ -4779,13 +4779,13 @@ namespace Microsoft.Data.SqlClient
                 // internal meta data class
                 _SqlMetaData col = altMetaDataSet[i];
                 
-                result = stateObj.TryReadByte(out _);
+                result = stateObj.TryReadByte(out col.op);
                 if (result != TdsOperationStatus.Done)
                 {
                     return result;
                 }
-                
-                result = stateObj.TryReadUInt16(out _);
+
+                result = stateObj.TryReadUInt16(out col.operand);
                 if (result != TdsOperationStatus.Done)
                 {
                     return result;

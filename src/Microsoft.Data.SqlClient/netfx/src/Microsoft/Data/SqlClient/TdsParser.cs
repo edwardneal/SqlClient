@@ -4175,7 +4175,7 @@ namespace Microsoft.Data.SqlClient
             returnValue = null;
             SqlReturnValue rec = new SqlReturnValue();
             rec.length = length;        // In 2005 this length is -1
-            result = stateObj.TryReadUInt16(out rec.parmIndex);
+            result = stateObj.TryReadUInt16(out _);
             if (result != TdsOperationStatus.Done)
             {
                 return result;
@@ -4851,6 +4851,7 @@ namespace Microsoft.Data.SqlClient
                 {
                     return result;
                 }
+
                 result = stateObj.TryReadUInt16(out col.operand);
                 if (result != TdsOperationStatus.Done)
                 {

@@ -661,9 +661,6 @@ namespace Microsoft.Data.SqlClient
     {
         internal string parameter;
         internal readonly SqlBuffer value;
-#if NETFRAMEWORK
-        internal ushort parmIndex;      //2005 or later only
-#endif
 
         internal SqlReturnValue() : base()
         {
