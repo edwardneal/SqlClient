@@ -12220,7 +12220,7 @@ namespace Microsoft.Data.SqlClient
             Debug.Assert(encoding == null || !needBom);
             char[] inBuff = ArrayPool<char>.Shared.Rent(constTextBufferSize);
 
-            encoding = encoding ?? new UnicodeEncoding(false, false);
+            encoding = encoding ?? TextDataFeed.DefaultEncoding;
 
             using (ConstrainedTextWriter writer = new ConstrainedTextWriter(new StreamWriter(new TdsOutputStream(this, stateObj, null), encoding), size))
             {
