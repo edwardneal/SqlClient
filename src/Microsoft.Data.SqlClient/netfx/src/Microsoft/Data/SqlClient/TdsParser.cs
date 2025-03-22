@@ -1813,35 +1813,33 @@ namespace Microsoft.Data.SqlClient
                 Debug.Assert(sizeof(int) == stateObj._bIntBytes.Length);
             }
 
-            int current = 0;
-            byte[] bytes = stateObj._bIntBytes;
-            bytes[current++] = (byte)(v & 0xff);
-            bytes[current++] = (byte)((v >> 8) & 0xff);
-            bytes[current++] = (byte)((v >> 16) & 0xff);
-            bytes[current++] = (byte)((v >> 24) & 0xff);
-            return bytes;
+            WriteInt(stateObj._bIntBytes.AsSpan(), v);
+            return stateObj._bIntBytes;
         }
 
         internal void WriteInt(int v, TdsParserStateObject stateObj)
         {
+            Span<byte> buffer = stackalloc byte[sizeof(int)];
+            WriteInt(buffer, v);
             if ((stateObj._outBytesUsed + 4) > stateObj._outBuff.Length)
             {
                 // if all of the int doesn't fit into the buffer
-                for (int shiftValue = 0; shiftValue < sizeof(int) * 8; shiftValue += 8)
+                for (int index = 0; index < sizeof(int); index++)
                 {
-                    stateObj.WriteByte((byte)((v >> shiftValue) & 0xff));
+                    stateObj.WriteByte(buffer[index]);
                 }
             }
             else
             {
                 // all of the int fits into the buffer
-                // NOTE: We don't use a loop here for performance
-                stateObj._outBuff[stateObj._outBytesUsed] = (byte)(v & 0xff);
-                stateObj._outBuff[stateObj._outBytesUsed + 1] = (byte)((v >> 8) & 0xff);
-                stateObj._outBuff[stateObj._outBytesUsed + 2] = (byte)((v >> 16) & 0xff);
-                stateObj._outBuff[stateObj._outBytesUsed + 3] = (byte)((v >> 24) & 0xff);
+                buffer.CopyTo(stateObj._outBuff.AsSpan(stateObj._outBytesUsed, sizeof(int)));
                 stateObj._outBytesUsed += 4;
             }
+        }
+
+        internal static void WriteInt(Span<byte> buffer, int value)
+        {
+            BinaryPrimitives.TryWriteInt32LittleEndian(buffer, value);
         }
 
         //
@@ -1854,7 +1852,9 @@ namespace Microsoft.Data.SqlClient
                 throw ADP.ParameterValueOutOfRange(v.ToString());
             }
 
-            return BitConverter.GetBytes(v);
+            var bytes = new byte[4];
+            BinaryPrimitives.WriteInt32LittleEndian(bytes, BitConverterCompatible.SingleToInt32Bits(v));
+            return bytes;
         }
 
         internal void WriteFloat(float v, TdsParserStateObject stateObj)
@@ -1977,7 +1977,9 @@ namespace Microsoft.Data.SqlClient
                 throw ADP.ParameterValueOutOfRange(v.ToString());
             }
 
-            return BitConverter.GetBytes(v);
+            var bytes = new byte[8];
+            BinaryPrimitives.WriteInt64LittleEndian(bytes, BitConverter.DoubleToInt64Bits(v));
+            return bytes;
         }
 
         internal void WriteDouble(double v, TdsParserStateObject stateObj)
