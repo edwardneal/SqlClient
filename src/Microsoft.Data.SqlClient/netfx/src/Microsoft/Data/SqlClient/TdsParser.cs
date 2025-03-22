@@ -1591,9 +1591,9 @@ namespace Microsoft.Data.SqlClient
 
             Debug.Assert(!string.IsNullOrEmpty(errorMessage), "Empty error message received from SNI");
 
-            string sqlContextInfo = StringsHelper.GetString(Enum.GetName(typeof(SniContext), stateObj.SniContext));
+            string sqlContextInfo = StringsHelper.GetResourceString(stateObj.SniContext.ToString());
             string providerRid = string.Format("SNI_PN{0}", (int)details.provider);
-            string providerName = StringsHelper.GetString(providerRid);
+            string providerName = StringsHelper.GetResourceString(providerRid);
             Debug.Assert(!string.IsNullOrEmpty(providerName), $"invalid providerResourceId '{providerRid}'");
             uint win32ErrorCode = details.nativeError;
 
@@ -1610,7 +1610,7 @@ namespace Microsoft.Data.SqlClient
                 if (0 <= iColon)
                 {
                     int len = errorMessage.Length;
-                    len -= 2; // exclude newline sequence
+                    len -= Environment.NewLine.Length; // exclude newline sequence
                     iColon += 2;  // skip over ": " sequence
                     len -= iColon;
                     /*
@@ -1640,8 +1640,8 @@ namespace Microsoft.Data.SqlClient
             errorMessage = string.Format("{0} (provider: {1}, error: {2} - {3})",
                 sqlContextInfo, providerName, (int)details.sniErrorNumber, errorMessage);
 
-            return new SqlError((int)details.nativeError, 0x00, TdsEnums.FATAL_ERROR_CLASS,
-                                _server, errorMessage, details.function, (int)details.lineNumber, win32ErrorCode);
+            return new SqlError(infoNumber: (int)details.nativeError, errorState: 0x00, TdsEnums.FATAL_ERROR_CLASS, _server,
+                                errorMessage, details.function, (int)details.lineNumber, win32ErrorCode: win32ErrorCode);
         }
 
         internal void CheckResetConnection(TdsParserStateObject stateObj)
@@ -8242,33 +8242,35 @@ namespace Microsoft.Data.SqlClient
                     return stateObj.TryReadInt32(out tokenLength);
             }
 
-            if (token == TdsEnums.SQLUDT)
-            { // special case for UDTs
-                tokenLength = -1; // Should we return -1 or not call GetTokenLength for UDTs?
-                return TdsOperationStatus.Done;
-            }
-            else if (token == TdsEnums.SQLRETURNVALUE)
             {
-                tokenLength = -1; // In 2005, the RETURNVALUE token stream no longer has length
-                return TdsOperationStatus.Done;
-            }
-            else if (token == TdsEnums.SQLXMLTYPE)
-            {
-                ushort value;
-                result = stateObj.TryReadUInt16(out value);
-                if (result != TdsOperationStatus.Done)
-                {
-                    tokenLength = 0;
-                    return result;
+                if (token == TdsEnums.SQLUDT)
+                { // special case for UDTs
+                    tokenLength = -1; // Should we return -1 or not call GetTokenLength for UDTs?
+                    return TdsOperationStatus.Done;
                 }
-                tokenLength = (int)value;
-                Debug.Assert(tokenLength == TdsEnums.SQL_USHORTVARMAXLEN, "Invalid token stream for xml datatype");
-                return TdsOperationStatus.Done;
-            }
-            else if (token == TdsEnums.SQLJSON)
-            {
-                tokenLength = -1;
-                return TdsOperationStatus.Done;
+                else if (token == TdsEnums.SQLRETURNVALUE)
+                {
+                    tokenLength = -1; // In 2005, the RETURNVALUE token stream no longer has length
+                    return TdsOperationStatus.Done;
+                }
+                else if (token == TdsEnums.SQLXMLTYPE)
+                {
+                    ushort value;
+                    result = stateObj.TryReadUInt16(out value);
+                    if (result != TdsOperationStatus.Done)
+                    {
+                        tokenLength = 0;
+                        return result;
+                    }
+                    tokenLength = (int)value;
+                    Debug.Assert(tokenLength == TdsEnums.SQL_USHORTVARMAXLEN, "Invalid token stream for xml datatype");
+                    return TdsOperationStatus.Done;
+                }
+                else if (token == TdsEnums.SQLJSON)
+                {
+                    tokenLength = -1;
+                    return TdsOperationStatus.Done;
+                }
             }
 
             switch (token & TdsEnums.SQLLenMask)
@@ -9464,15 +9466,15 @@ namespace Microsoft.Data.SqlClient
                     // Need to wait for flush - continuation will unlock the connection
                     bool taskReleaseConnectionLock = releaseConnectionLock;
                     releaseConnectionLock = false;
-                    return executeTask.ContinueWith(t =>
+                    return executeTask.ContinueWith(task =>
                     {
-                        Debug.Assert(!t.IsCanceled, "Task should not be canceled");
+                        Debug.Assert(!task.IsCanceled, "Task should not be canceled");
                         try
                         {
-                            if (t.IsFaulted)
+                            if (task.IsFaulted)
                             {
-                                FailureCleanup(stateObj, t.Exception.InnerException);
-                                throw t.Exception.InnerException;
+                                FailureCleanup(stateObj, task.Exception.InnerException);
+                                throw task.Exception.InnerException;
                             }
                             else
                             {
@@ -13654,8 +13656,7 @@ namespace Microsoft.Data.SqlClient
                             _statistics == null ? bool.TrueString : bool.FalseString,
                             _statisticsIsInTransaction ? bool.TrueString : bool.FalseString,
                             _fPreserveTransaction ? bool.TrueString : bool.FalseString,
-                            _connHandler == null ? "(null)" : _connHandler.ConnectionOptions.MultiSubnetFailover.ToString((IFormatProvider)null),
-                            _connHandler == null ? "(null)" : _connHandler.ConnectionOptions.TransparentNetworkIPResolution.ToString((IFormatProvider)null));
+                            _connHandler == null ? "(null)" : _connHandler.ConnectionOptions.MultiSubnetFailover.ToString((IFormatProvider)null));
         }
 
         private string TraceObjectClass(object instance)
