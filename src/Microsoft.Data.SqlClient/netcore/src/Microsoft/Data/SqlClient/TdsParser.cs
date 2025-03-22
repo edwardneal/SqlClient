@@ -858,6 +858,7 @@ namespace Microsoft.Data.SqlClient
 #else
                         FillGuidBytes(actId.Id, payload.AsSpan(payloadLength, GUID_SIZE));
 #endif
+                        payloadLength += GUID_SIZE;
                         payload[payloadLength++] = (byte)(0x000000ff & actId.Sequence);
                         payload[payloadLength++] = (byte)((0x0000ff00 & actId.Sequence) >> 8);
                         payload[payloadLength++] = (byte)((0x00ff0000 & actId.Sequence) >> 16);
