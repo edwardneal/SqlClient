@@ -923,16 +923,24 @@ namespace Microsoft.Data.SqlClient
                         break;
 
                     case (int)PreLoginOptions.TRACEID:
+#if NETFRAMEWORK
                         byte[] connectionIdBytes = _connHandler._clientConnectionId.ToByteArray();
                         Debug.Assert(GUID_SIZE == connectionIdBytes.Length);
                         Buffer.BlockCopy(connectionIdBytes, 0, payload, payloadLength, GUID_SIZE);
+#else
+                        FillGuidBytes(_connHandler._clientConnectionId, payload.AsSpan(payloadLength, GUID_SIZE));
+#endif
                         payloadLength += GUID_SIZE;
                         offset += GUID_SIZE;
                         optionDataSize = GUID_SIZE;
 
                         ActivityCorrelator.ActivityId actId = ActivityCorrelator.Next();
+#if NETFRAMEWORK
                         connectionIdBytes = actId.Id.ToByteArray();
                         Buffer.BlockCopy(connectionIdBytes, 0, payload, payloadLength, GUID_SIZE);
+#else
+                        FillGuidBytes(actId.Id, payload.AsSpan(payloadLength, GUID_SIZE));
+#endif
                         payloadLength += GUID_SIZE;
                         payload[payloadLength++] = (byte)(0x000000ff & actId.Sequence);
                         payload[payloadLength++] = (byte)((0x0000ff00 & actId.Sequence) >> 8);
@@ -6389,7 +6397,11 @@ namespace Microsoft.Data.SqlClient
                 case TdsEnums.SQLUNIQUEID:
                     {
                         Debug.Assert(length == 16, "invalid length for SqlGuid type!");
+#if NETFRAMEWORK
                         value.SqlGuid = SqlTypeWorkarounds.SqlGuidCtor(unencryptedBytes, true);   // doesn't copy the byte array
+#else
+                        value.SqlGuid = new SqlGuid(unencryptedBytes);   // doesn't copy the byte array
+#endif
                         break;
                     }
 
@@ -6410,7 +6422,11 @@ namespace Microsoft.Data.SqlClient
                             unencryptedBytes = bytes;
                         }
 
+#if NETFRAMEWORK
                         value.SqlBinary = SqlTypeWorkarounds.SqlBinaryCtor(unencryptedBytes, true);   // doesn't copy the byte array
+#else
+                        value.SqlBinary = new SqlBinary(unencryptedBytes);   // doesn't copy the byte array
+#endif
                         break;
                     }
 
@@ -6635,7 +6651,11 @@ namespace Microsoft.Data.SqlClient
                     }
                     else
                     {
+#if NETFRAMEWORK
                         value.SqlBinary = SqlTypeWorkarounds.SqlBinaryCtor(b, true); // doesn't copy the byte array
+#else
+                        value.SqlBinary = SqlBinary.WrapBytes(b); // doesn't copy the byte array
+#endif
                     }
                     break;
 
@@ -6970,18 +6990,26 @@ namespace Microsoft.Data.SqlClient
                     {
                         Debug.Assert(length == GUID_SIZE, "invalid length for SqlGuid type!");
 
+#if NETFRAMEWORK
                         byte[] b = _tempGuidBytes;
                         if (b is null)
                         {
                             b = new byte[GUID_SIZE];
                         }
+#else
+                        Span<byte> b = stackalloc byte[GUID_SIZE];
+#endif
                         result = stateObj.TryReadByteArray(b, length);
                         if (result != TdsOperationStatus.Done)
                         {
                             return result;
                         }
+#if NETFRAMEWORK
                         value.Guid = new Guid(b);
                         _tempGuidBytes = b;
+#else
+                        value.Guid = ConstructGuid(b);
+#endif
                         break;
                     }
 
@@ -6999,7 +7027,11 @@ namespace Microsoft.Data.SqlClient
                         {
                             return result;
                         }
+#if NETFRAMEWORK
                         value.SqlBinary = SqlTypeWorkarounds.SqlBinaryCtor(b, true); // doesn't copy the byte array
+#else
+                        value.SqlBinary = SqlBinary.WrapBytes(b); // doesn't copy the byte array
+#endif
 
                         break;
                     }
@@ -7327,7 +7359,12 @@ namespace Microsoft.Data.SqlClient
                 case TdsEnums.SQLUNIQUEID:
                     {
                         System.Guid guid = (System.Guid)value;
+#if NETFRAMEWORK
                         byte[] b = guid.ToByteArray();
+#else
+                        Span<byte> b = stackalloc byte[16];
+                        FillGuidBytes(guid, b);
+#endif
 
                         Debug.Assert((length == b.Length) && (length == 16), "Invalid length for guid type in com+ object");
                         stateObj.WriteByteSpan(b);
@@ -7484,7 +7521,12 @@ namespace Microsoft.Data.SqlClient
                 case TdsEnums.SQLUNIQUEID:
                     {
                         System.Guid guid = (System.Guid)value;
+#if NETFRAMEWORK
                         byte[] b = guid.ToByteArray();
+#else
+                        Span<byte> b = stackalloc byte[16];
+                        FillGuidBytes(guid, b);
+#endif
 
                         length = b.Length;
                         Debug.Assert(length == 16, "Invalid length for guid type in com+ object");
@@ -7885,7 +7927,11 @@ namespace Microsoft.Data.SqlClient
                 bytes[current++] = 0;
 
             Span<uint> data = stackalloc uint[4];
+#if NETFRAMEWORK
             SqlTypeWorkarounds.SqlDecimalExtractData(d, out data[0], out data[1], out data[2], out data[3]);
+#else
+            d.WriteTdsValue(data);
+#endif
             byte[] bytesPart = SerializeUnsignedInt(data[0], stateObj);
             Buffer.BlockCopy(bytesPart, 0, bytes, current, 4);
             current += 4;
@@ -7910,7 +7956,11 @@ namespace Microsoft.Data.SqlClient
                 stateObj.WriteByte(0);
 
             Span<uint> data = stackalloc uint[4];
+#if NETFRAMEWORK
             SqlTypeWorkarounds.SqlDecimalExtractData(d, out data[0], out data[1], out data[2], out data[3]);
+#else
+            d.WriteTdsValue(data);
+#endif
             WriteUnsignedInt(data[0], stateObj);
             WriteUnsignedInt(data[1], stateObj);
             WriteUnsignedInt(data[2], stateObj);
@@ -11742,6 +11792,7 @@ namespace Microsoft.Data.SqlClient
                     {
                         Debug.Assert(actualLength == 16, "Invalid length for guid type in com+ object");
 
+#if NETFRAMEWORK
                         byte[] b;
                         if (value is Guid guid)
                         {
@@ -11751,6 +11802,25 @@ namespace Microsoft.Data.SqlClient
                         {
                             b = ((SqlGuid)value).ToByteArray();
                         }
+#else
+                        Span<byte> b = stackalloc byte[16];
+                        if (value is Guid guid)
+                        {
+                            FillGuidBytes(guid, b);
+                        }
+                        else
+                        {
+                            SqlGuid sqlGuid = (SqlGuid)value;
+                            if (sqlGuid.IsNull)
+                            {
+                                b.Clear(); // this is needed because initlocals may be supressed in framework assemblies meaning the memory is not automaticaly zeroed
+                            }
+                            else
+                            {
+                                FillGuidBytes(sqlGuid.Value, b);
+                            }
+                        }
+#endif
 
                         stateObj.WriteByteSpan(b);
                         break;
@@ -12426,8 +12496,13 @@ namespace Microsoft.Data.SqlClient
                 case TdsEnums.SQLUNIQUEID:
                     {
                         Debug.Assert(actualLength == 16, "Invalid length for guid type in com+ object");
+#if NETFRAMEWORK
                         System.Guid guid = (System.Guid)value;
                         byte[] b = guid.ToByteArray();
+#else
+                        Span<byte> b = stackalloc byte[16];
+                        FillGuidBytes((System.Guid)value, b);
+#endif
                         stateObj.WriteByteSpan(b);
                         break;
                     }
