@@ -8097,7 +8097,20 @@ namespace Microsoft.Data.SqlClient
 
         private static void CopyCharsToBytes(char[] source, int sourceOffset, byte[] dest, int destOffset, int charLength)
         {
-            Buffer.BlockCopy(source, sourceOffset, dest, destOffset, charLength * ADP.CharSize);
+            if (!BitConverter.IsLittleEndian)
+            {
+                int desti = 0;
+                Span<byte> span = dest.AsSpan();
+                for (int srci = 0; srci < charLength; srci++)
+                {
+                    BinaryPrimitives.WriteUInt16LittleEndian(span.Slice(desti + destOffset), (ushort)source[srci + sourceOffset]);
+                    desti += 2;
+                }
+            }
+            else
+            {
+                Buffer.BlockCopy(source, sourceOffset, dest, destOffset, charLength * ADP.CharSize);
+            }
         }
 
         private static void CopyStringToBytes(string source, int sourceOffset, byte[] dest, int destOffset, int charLength)
