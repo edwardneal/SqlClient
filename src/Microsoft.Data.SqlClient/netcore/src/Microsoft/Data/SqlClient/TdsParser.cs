@@ -7767,7 +7767,6 @@ namespace Microsoft.Data.SqlClient
             else
                 bytes[current++] = 0;
 
-
             Span<uint> data = stackalloc uint[4];
             d.WriteTdsValue(data);
             byte[] bytesPart = SerializeUnsignedInt(data[0], stateObj);

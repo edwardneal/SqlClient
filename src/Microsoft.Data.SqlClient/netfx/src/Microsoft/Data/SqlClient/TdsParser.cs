@@ -7879,18 +7879,18 @@ namespace Microsoft.Data.SqlClient
             else
                 bytes[current++] = 0;
 
-            uint data1, data2, data3, data4;
-            SqlTypeWorkarounds.SqlDecimalExtractData(d, out data1, out data2, out data3, out data4);
-            byte[] bytesPart = SerializeUnsignedInt(data1, stateObj);
+            Span<uint> data = stackalloc uint[4];
+            SqlTypeWorkarounds.SqlDecimalExtractData(d, out data[0], out data[1], out data[2], out data[3]);
+            byte[] bytesPart = SerializeUnsignedInt(data[0], stateObj);
             Buffer.BlockCopy(bytesPart, 0, bytes, current, 4);
             current += 4;
-            bytesPart = SerializeUnsignedInt(data2, stateObj);
+            bytesPart = SerializeUnsignedInt(data[1], stateObj);
             Buffer.BlockCopy(bytesPart, 0, bytes, current, 4);
             current += 4;
-            bytesPart = SerializeUnsignedInt(data3, stateObj);
+            bytesPart = SerializeUnsignedInt(data[2], stateObj);
             Buffer.BlockCopy(bytesPart, 0, bytes, current, 4);
             current += 4;
-            bytesPart = SerializeUnsignedInt(data4, stateObj);
+            bytesPart = SerializeUnsignedInt(data[3], stateObj);
             Buffer.BlockCopy(bytesPart, 0, bytes, current, 4);
 
             return bytes;
@@ -7904,12 +7904,12 @@ namespace Microsoft.Data.SqlClient
             else
                 stateObj.WriteByte(0);
 
-            uint data1, data2, data3, data4;
-            SqlTypeWorkarounds.SqlDecimalExtractData(d, out data1, out data2, out data3, out data4);
-            WriteUnsignedInt(data1, stateObj);
-            WriteUnsignedInt(data2, stateObj);
-            WriteUnsignedInt(data3, stateObj);
-            WriteUnsignedInt(data4, stateObj);
+            Span<uint> data = stackalloc uint[4];
+            SqlTypeWorkarounds.SqlDecimalExtractData(d, out data[0], out data[1], out data[2], out data[3]);
+            WriteUnsignedInt(data[0], stateObj);
+            WriteUnsignedInt(data[1], stateObj);
+            WriteUnsignedInt(data[2], stateObj);
+            WriteUnsignedInt(data[3], stateObj);
         }
 
         private byte[] SerializeDecimal(decimal value, TdsParserStateObject stateObj)
