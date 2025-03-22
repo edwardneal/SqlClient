@@ -615,7 +615,7 @@ namespace Microsoft.Data.SqlClient
 
         internal void RemoveEncryption()
         {
-            Debug.Assert(_encryptionOption == EncryptionOptions.LOGIN, "Invalid encryption option state");
+            Debug.Assert((_encryptionOption & EncryptionOptions.OPTIONS_MASK) == EncryptionOptions.LOGIN, "Invalid encryption option state");
 
             uint error = _physicalStateObj.DisableSsl();
 
@@ -1031,12 +1031,12 @@ namespace Microsoft.Data.SqlClient
                                 if (serverOption == EncryptionOptions.OFF)
                                 {
                                     // Only encrypt login.
-                                    _encryptionOption = EncryptionOptions.LOGIN;
+                                    _encryptionOption = EncryptionOptions.LOGIN | (_encryptionOption & ~EncryptionOptions.OPTIONS_MASK);
                                 }
                                 else if (serverOption == EncryptionOptions.REQ)
                                 {
                                     // Encrypt all.
-                                    _encryptionOption = EncryptionOptions.ON;
+                                    _encryptionOption = EncryptionOptions.ON | (_encryptionOption & ~EncryptionOptions.OPTIONS_MASK);
                                 }
                                 // NOT_SUP: No encryption.
                                 break;
@@ -11654,6 +11654,7 @@ namespace Microsoft.Data.SqlClient
                 case TdsEnums.SQLUNIQUEID:
                     {
                         Debug.Assert(actualLength == 16, "Invalid length for guid type in com+ object");
+
                         Span<byte> b = stackalloc byte[16];
                         if (value is Guid guid)
                         {
@@ -11671,9 +11672,9 @@ namespace Microsoft.Data.SqlClient
                                 FillGuidBytes(sqlGuid.Value, b);
                             }
                         }
+
                         stateObj.WriteByteSpan(b);
                         break;
-
                     }
 
                 case TdsEnums.SQLBITN:

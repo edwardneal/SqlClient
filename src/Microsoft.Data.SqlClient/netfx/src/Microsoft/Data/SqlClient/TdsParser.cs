@@ -1861,7 +1861,7 @@ namespace Microsoft.Data.SqlClient
         {
             byte[] bytes = BitConverter.GetBytes(v);
 
-            stateObj.WriteByteArray(bytes, bytes.Length, 0);
+            stateObj.WriteByteSpan(bytes);
         }
 
         //
@@ -1984,7 +1984,7 @@ namespace Microsoft.Data.SqlClient
         {
             byte[] bytes = BitConverter.GetBytes(v);
 
-            stateObj.WriteByteArray(bytes, bytes.Length, 0);
+            stateObj.WriteByteSpan(bytes);
         }
 
         internal void PrepareResetConnection(bool preserveTransaction)
@@ -7325,7 +7325,7 @@ namespace Microsoft.Data.SqlClient
                         byte[] b = guid.ToByteArray();
 
                         Debug.Assert((length == b.Length) && (length == 16), "Invalid length for guid type in com+ object");
-                        stateObj.WriteByteArray(b, length, 0);
+                        stateObj.WriteByteSpan(b);
                         break;
                     }
 
@@ -7484,7 +7484,7 @@ namespace Microsoft.Data.SqlClient
                         length = b.Length;
                         Debug.Assert(length == 16, "Invalid length for guid type in com+ object");
                         WriteSqlVariantHeader(18, metatype.TDSType, metatype.PropBytes, stateObj);
-                        stateObj.WriteByteArray(b, length, 0);
+                        stateObj.WriteByteSpan(b);
                         break;
                     }
 
@@ -11734,7 +11734,7 @@ namespace Microsoft.Data.SqlClient
                             b = ((SqlGuid)value).ToByteArray();
                         }
 
-                        stateObj.WriteByteArray(b, actualLength, 0);
+                        stateObj.WriteByteSpan(b);
                         break;
                     }
 
@@ -12407,11 +12407,10 @@ namespace Microsoft.Data.SqlClient
 
                 case TdsEnums.SQLUNIQUEID:
                     {
+                        Debug.Assert(actualLength == 16, "Invalid length for guid type in com+ object");
                         System.Guid guid = (System.Guid)value;
                         byte[] b = guid.ToByteArray();
-
-                        Debug.Assert((actualLength == b.Length) && (actualLength == 16), "Invalid length for guid type in com+ object");
-                        stateObj.WriteByteArray(b, actualLength, 0);
+                        stateObj.WriteByteSpan(b);
                         break;
                     }
 
