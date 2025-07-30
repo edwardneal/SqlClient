@@ -450,6 +450,62 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
             }
         }
 
+        [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup))]
+        public void EmptyDynamicIEnumerableShouldPassDefault()
+        {
+            string typeName = $"[dbo].[{DataTestUtility.GenerateObjectName()}]";
+            string spName = $"[dbo].[{DataTestUtility.GenerateObjectName()}]";
+
+            using SqlConnection sqlConnection = new SqlConnection(DataTestUtility.TCPConnectionString);
+            string createTypeSql = $"CREATE TYPE {typeName} AS TABLE (col1 INT)";
+            string createProcSql = $"CREATE PROC {spName}(@tvp {typeName} READONLY) AS SELECT count(1) + 1000 FROM @tvp";
+
+            using SqlCommand schemaCmd = new(createTypeSql, sqlConnection) { CommandType = CommandType.Text };
+
+            using SqlCommand testCmd = new(spName, sqlConnection) { CommandType = CommandType.StoredProcedure };
+
+            try
+            {
+                sqlConnection.Open();
+
+                schemaCmd.ExecuteNonQuery();
+
+                schemaCmd.CommandText = createProcSql;
+                schemaCmd.ExecuteNonQuery();
+
+                SqlParameter udtParameter = testCmd.Parameters.Add("@tvp", SqlDbType.Structured);
+                udtParameter.TypeName = typeName;
+                udtParameter.Value = ReturnEnumerable(100, true); // This should not throw an exception, even though the enumerable is empty
+
+                int result = (int)testCmd.ExecuteScalar();
+
+                Assert.Equal(1000, result); // The result should be 1000, as the enumerable is empty and the stored procedure adds 1000 to the count of rows
+            }
+            finally
+            {
+                DataTestUtility.DropStoredProcedure(sqlConnection, spName);
+                DataTestUtility.DropUserDefinedType(sqlConnection, typeName);
+            }
+
+            static IEnumerable<SqlDataRecord> ReturnEnumerable(int length, bool exitEarly)
+            {
+                if (exitEarly)
+                {
+                    yield break;
+                }
+
+                SqlMetaData col1 = new("col1", SqlDbType.Int);
+
+                for (int i = 0; i < length; i++)
+                {
+                    SqlDataRecord dr = new SqlDataRecord(col1);
+
+                    dr.SetInt32(0, i);
+                    yield return dr;
+                }
+            }
+        }
+
         private void QueryHintsTest()
         {
             using SqlConnection conn = new(_connStr);

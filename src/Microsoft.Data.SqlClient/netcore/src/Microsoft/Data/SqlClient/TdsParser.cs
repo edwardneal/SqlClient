@@ -10347,6 +10347,7 @@ namespace Microsoft.Data.SqlClient
             object value;
             ExtendedClrTypeCode typeCode;
 
+            sendDefault |= peekAhead.Empty;
             // if we have an output or default param, set the value to null so we do not send it across to the server
             if (sendDefault)
             {

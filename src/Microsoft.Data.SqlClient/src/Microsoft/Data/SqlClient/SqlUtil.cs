@@ -1155,10 +1155,6 @@ namespace Microsoft.Data.SqlClient
         {
             return ADP.InvalidOperation(StringsHelper.GetString(Strings.SqlProvider_SortOrdinalGreaterThanFieldCount, sortOrdinal, columnOrdinal));
         }
-        internal static Exception IEnumerableOfSqlDataRecordHasNoRows()
-        {
-            return ADP.Argument(StringsHelper.GetString(Strings.IEnumerableOfSqlDataRecordHasNoRows));
-        }
 
         //
         // SQL.BulkLoad

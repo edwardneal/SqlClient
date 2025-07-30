@@ -20,8 +20,11 @@ namespace Microsoft.Data.SqlClient
 
     internal class ParameterPeekAheadValue
     {
+        internal static readonly ParameterPeekAheadValue EmptyPeekahead = new() { Empty = true, Enumerator = null, FirstRecord = null };
+
         // Peekahead for IEnumerable<SqlDataRecord>
         internal IEnumerator<SqlDataRecord> Enumerator;
         internal SqlDataRecord FirstRecord;
+        internal bool Empty;
     }
 }

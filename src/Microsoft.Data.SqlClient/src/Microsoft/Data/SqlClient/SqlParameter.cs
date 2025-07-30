@@ -1446,7 +1446,7 @@ namespace Microsoft.Data.SqlClient
                     }
                     else
                     {
-                        throw SQL.IEnumerableOfSqlDataRecordHasNoRows();
+                        peekAhead = ParameterPeekAheadValue.EmptyPeekahead;
                     }
                 }
                 finally
