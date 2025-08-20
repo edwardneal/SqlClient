@@ -5753,6 +5753,10 @@ namespace Microsoft.Data.SqlClient
                     {
                         return Task.FromResult<T>(reader.GetFieldValueFromSqlBufferInternal<T>(reader._data[columnIndex], reader._metaData[columnIndex], isAsync: true));
                     }
+                    else
+                    {
+                        return reader.ExecuteAsyncCall(context);
+                    }
                 }
             }
 

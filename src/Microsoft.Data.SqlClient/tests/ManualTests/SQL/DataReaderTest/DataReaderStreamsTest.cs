@@ -30,35 +30,42 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         public static async Task GetFieldValueAsync_OfStream(CommandBehavior behavior, bool isExecuteAsync)
         {
             const int PacketSize = 512; // force minimum packet size so that the test data spans multiple packets to test sequential access spanning
+            const int RowCount = 512;
             string connectionString = SetConnectionStringPacketSize(DataTestUtility.TCPConnectionString, PacketSize);
-            byte[] originalData = CreateBinaryData(PacketSize, forcedPacketCount: 4);
-            string query = CreateBinaryDataQuery(originalData);
+            byte[] originalData = CreateBinaryData(PacketSize, forcedPacketCount: 128);
+            string query = CreateBinaryDataQuery(RowCount, originalData);
+            int rowsRead = 0;
 
-            string streamTypeName = null;
-            byte[] outputData = null;
             using (SqlConnection connection = new SqlConnection(connectionString))
             using (SqlCommand command = new SqlCommand(query, connection))
             {
-                connection.Open();
+                await Open(connection, isExecuteAsync);
                 using (SqlDataReader reader = await ExecuteReader(command, behavior, isExecuteAsync))
                 {
-                    if (await Read(reader, isExecuteAsync))
+                    while (await Read(reader, isExecuteAsync))
                     {
+                        string streamTypeName = null;
+                        byte[] outputData = null;
+
+                        rowsRead++;
+
                         using (MemoryStream buffer = new MemoryStream(originalData.Length))
-                        using (Stream stream = await reader.GetFieldValueAsync<Stream>(1))
+                        using (Stream stream = await reader.GetFieldValueAsync<Stream>(0))
                         {
                             streamTypeName = stream.GetType().Name;
                             await stream.CopyToAsync(buffer);
                             outputData = buffer.ToArray();
                         }
+
+                        Assert.True(behavior != CommandBehavior.SequentialAccess || streamTypeName.Contains("Sequential"));
+                        Assert.NotNull(outputData);
+                        Assert.Equal(originalData.Length, outputData.Length);
+                        Assert.Equal(originalData, outputData);
                     }
                 }
             }
 
-            Assert.True(behavior != CommandBehavior.SequentialAccess || streamTypeName.Contains("Sequential"));
-            Assert.NotNull(outputData);
-            Assert.Equal(originalData.Length, outputData.Length);
-            Assert.Equal(originalData, outputData);
+            Assert.Equal(RowCount, rowsRead);
         }
 
         [ConditionalTheory(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
@@ -72,7 +79,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         {
             const int PacketSize = 512; // force minimun packet size so that the test data spans multiple packets to test sequential access spanning
             string connectionString = SetConnectionStringPacketSize(DataTestUtility.TCPConnectionString, PacketSize);
-            string originalXml = CreateXmlData(PacketSize, forcedPacketCount: 4);
+            string originalXml = CreateXmlData(PacketSize, forcedPacketCount: 1024);
             string query = CreateXmlDataQuery(originalXml);
 
             bool isAsync = false;
@@ -111,7 +118,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         {
             const int PacketSize = 512; // force minimun packet size so that the test data spans multiple packets to test sequential access spanning
             string connectionString = SetConnectionStringPacketSize(DataTestUtility.TCPConnectionString, PacketSize);
-            string originalText = CreateXmlData(PacketSize, forcedPacketCount: 4);
+            string originalText = CreateXmlData(PacketSize, forcedPacketCount: 1024);
             string query = CreateTextDataQuery(originalText);
 
             string streamTypeName = null;
@@ -228,32 +235,40 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         public static async Task GetFieldValue_OfStream(CommandBehavior behavior, bool isExecuteAsync)
         {
             const int PacketSize = 512; // force minimun packet size so that the test data spans multiple packets to test sequential access spanning
+            const int RowCount = 512;
             string connectionString = SetConnectionStringPacketSize(DataTestUtility.TCPConnectionString, PacketSize);
-            byte[] originalData = CreateBinaryData(PacketSize, forcedPacketCount: 4);
-            string query = CreateBinaryDataQuery(originalData);
+            byte[] originalData = CreateBinaryData(PacketSize, forcedPacketCount: 1024);
+            string query = CreateBinaryDataQuery(RowCount, originalData);
+            int rowsRead = 0;
 
-            string streamTypeName = null;
-            byte[] outputData = null;
             using (SqlConnection connection = new SqlConnection(connectionString))
             using (SqlCommand command = new SqlCommand(query, connection))
             {
-                connection.Open();
+                await Open(connection, isExecuteAsync);
                 using (SqlDataReader reader = await ExecuteReader(command, behavior, isExecuteAsync))
                 {
-                    if (await Read(reader, isExecuteAsync))
+                    while (await Read(reader, isExecuteAsync))
                     {
-                        using (Stream stream = reader.GetFieldValue<Stream>(1))
+                        rowsRead++;
+
+                        string streamTypeName = null;
+                        byte[] outputData = null;
+
+                        using (Stream stream = reader.GetFieldValue<Stream>(0))
                         {
                             streamTypeName = stream.GetType().Name;
                             outputData = GetStreamContents(stream);
                         }
+
+                        Assert.True(behavior != CommandBehavior.SequentialAccess || streamTypeName.Contains("Sequential"));
+                        Assert.NotNull(outputData);
+                        Assert.Equal(originalData.Length, outputData.Length);
+                        Assert.Equal(originalData, outputData);
                     }
                 }
             }
-            Assert.True(behavior != CommandBehavior.SequentialAccess || streamTypeName.Contains("Sequential"));
-            Assert.NotNull(outputData);
-            Assert.Equal(originalData.Length, outputData.Length);
-            Assert.Equal(originalData, outputData);
+
+            Assert.Equal(RowCount, rowsRead);
         }
 
         [ConditionalTheory(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
@@ -307,7 +322,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
             const int PacketSize = 512; // force minimun packet size so that the test data spans multiple packets to test sequential access spanning
             string connectionString = SetConnectionStringPacketSize(DataTestUtility.TCPConnectionString, PacketSize);
             byte[] originalData = CreateBinaryData(PacketSize, forcedPacketCount: 4);
-            string query = CreateBinaryDataQuery(originalData);
+            string query = CreateBinaryDataQuery(1, originalData);
 
             string streamTypeName = null;
             byte[] outputData = null;
@@ -566,6 +581,17 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
             Assert.Equal(expectedXml, returnedXml, StringComparer.Ordinal);
         }
 #endif
+        private static async Task Open(SqlConnection conn, bool isExecuteAsync)
+        {
+            if (isExecuteAsync)
+            {
+                await conn.OpenAsync();
+            }
+            else
+            {
+                conn.Open();
+            }
+        }
 
         private static async Task<SqlDataReader> ExecuteReader(SqlCommand command, CommandBehavior behavior, bool isExecuteAsync)
             => isExecuteAsync ? await command.ExecuteReaderAsync(behavior) : command.ExecuteReader(behavior);
@@ -700,15 +726,15 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
             return buffer.ToString();
         }
 
-        private static string CreateBinaryDataQuery(byte[] originalData)
+        private static string CreateBinaryDataQuery(int rowCount, byte[] originalData)
         {
             StringBuilder queryBuilder = new StringBuilder(originalData.Length * 2 + 128);
-            queryBuilder.Append("SELECT 1 as DummyField, 0x");
+            queryBuilder.AppendFormat("SELECT TOP {0} 0x", rowCount);
             for (int index = 0; index < originalData.Length; index++)
             {
                 queryBuilder.AppendFormat("{0:X2}", originalData[index]);
             }
-            queryBuilder.Append(" AS Data");
+            queryBuilder.Append(" AS Data FROM sys.messages");
             return queryBuilder.ToString();
         }
 
