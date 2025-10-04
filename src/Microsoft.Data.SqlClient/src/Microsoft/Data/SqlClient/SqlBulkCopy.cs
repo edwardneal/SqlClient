@@ -1136,23 +1136,12 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
         // When _isAsyncBulkCopy == true (i.e. async copy): returns Task<bool> when IDataReader is a DbDataReader, Null for others.
         // When _isAsyncBulkCopy == false (i.e. sync copy): returns null. Uses ReadFromRowSource to get the boolean value.
         // "more" -- should be used by the caller only when the return value is null.
-        private Task ReadFromRowSourceAsync(CancellationToken cts)
+        private async ValueTask ReadFromRowSourceAsync(CancellationToken cts)
         {
             if (_isAsyncBulkCopy && _dbDataReaderRowSource != null)
             {
                 // This will call ReadAsync for DbDataReader (for SqlDataReader it will be truly async read; for non-SqlDataReader it may block.)
-                return _dbDataReaderRowSource.ReadAsync(cts).ContinueWith(
-                    static (Task<bool> task, object state) =>
-                    {
-                        if (task.Status == TaskStatus.RanToCompletion)
-                        {
-                            ((SqlBulkCopy)state)._hasMoreRowToCopy = task.Result;
-                        }
-                        return task;
-                    },
-                    state: this,
-                    scheduler: TaskScheduler.Default
-                ).Unwrap();
+                _hasMoreRowToCopy = await _dbDataReaderRowSource.ReadAsync(cts).ConfigureAwait(false);
             }
             else
             { // This will call Read for DataRows, DataTable and IDataReader (this includes all IDataReader except DbDataReader)
@@ -1166,22 +1155,10 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                 {
                     _hasMoreRowToCopy = ReadFromRowSource(); // Synchronous calls for DataRows and DataTable won't block. For IDataReader, it may block.
                 }
-                catch (Exception ex)
-                {
-                    if (_isAsyncBulkCopy)
-                    {
-                        return Task.FromException<bool>(ex);
-                    }
-                    else
-                    {
-                        throw;
-                    }
-                }
                 finally
                 {
                     internalConnection._parserLock.Wait(canReleaseFromAnyThread: semaphoreLock);
                 }
-                return null;
             }
         }
 
@@ -1719,7 +1696,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                 _sqlDataReaderRowSource = reader as SqlDataReader;
                 _rowSourceType = ValueSourceType.DbDataReader;
 
-                _ = WriteRowSourceToServerAsync(reader.FieldCount, CancellationToken.None); //It returns null since _isAsyncBulkCopy = false;
+                WriteRowSourceToServerAsync(reader.FieldCount, CancellationToken.None).GetAwaiter().GetResult(); //It returns null since _isAsyncBulkCopy = false;
             }
             finally
             {
@@ -1755,7 +1732,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                 _dbDataReaderRowSource = _rowSource as DbDataReader;
                 _rowSourceType = ValueSourceType.IDataReader;
                 
-                _ = WriteRowSourceToServerAsync(reader.FieldCount, CancellationToken.None); //It returns null since _isAsyncBulkCopy = false;
+                WriteRowSourceToServerAsync(reader.FieldCount, CancellationToken.None).GetAwaiter().GetResult(); //It returns null since _isAsyncBulkCopy = false;
             }
             finally
             {
@@ -1794,7 +1771,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                 _rowSourceType = ValueSourceType.DataTable;
                 _rowEnumerator = table.Rows.GetEnumerator();
 
-                _ = WriteRowSourceToServerAsync(table.Columns.Count, CancellationToken.None); //It returns null since _isAsyncBulkCopy = false;
+                WriteRowSourceToServerAsync(table.Columns.Count, CancellationToken.None).GetAwaiter().GetResult(); //It returns null since _isAsyncBulkCopy = false;
             }
             finally
             {
@@ -1838,7 +1815,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                 _rowSourceType = ValueSourceType.RowArray;
                 _rowEnumerator = rows.GetEnumerator();
 
-                _ = WriteRowSourceToServerAsync(table.Columns.Count, CancellationToken.None); //It returns null since _isAsyncBulkCopy = false;
+                WriteRowSourceToServerAsync(table.Columns.Count, CancellationToken.None).GetAwaiter().GetResult(); //It returns null since _isAsyncBulkCopy = false;
             }
             finally
             {
@@ -2436,8 +2413,8 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                         CheckAndRaiseNotification(); // Check notification logic after copying the row
 
                         // Now we will read the next row.
-                        Task readTask = ReadFromRowSourceAsync(cts); // Read the next row. Caution: more is only valid if the task returns null. Otherwise, we wait for Task.Result
-                        if (readTask != null)
+                        ValueTask readTask = ReadFromRowSourceAsync(cts); // Read the next row. Caution: more is only valid if the task returns null. Otherwise, we wait for Task.Result
+                        if (!readTask.IsCompleted)
                         {
                             if (source == null)
                             {
@@ -2445,7 +2422,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                             }
                             resultTask = source.Task;
 
-                            AsyncHelper.ContinueTaskWithState(readTask, source, this,
+                            AsyncHelper.ContinueTaskWithState(readTask.AsTask(), source, this,
                                 onSuccess: (object state) => ((SqlBulkCopy)state).CopyRowsAsync(i + 1, totalRows, cts, source),
                                 connectionToDoom: _connection.GetOpenTdsConnection()
                             );
@@ -2463,14 +2440,14 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                                 SqlBulkCopy sqlBulkCopy = (SqlBulkCopy)state;
                                 sqlBulkCopy.CheckAndRaiseNotification(); // Check for notification now as the current row copy is done at this moment.
 
-                                Task readTask = sqlBulkCopy.ReadFromRowSourceAsync(cts);
-                                if (readTask == null)
+                                ValueTask readTask = sqlBulkCopy.ReadFromRowSourceAsync(cts);
+                                if (readTask.IsCompleted)
                                 {
                                     sqlBulkCopy.CopyRowsAsync(i + 1, totalRows, cts, source);
                                 }
                                 else
                                 {
-                                    AsyncHelper.ContinueTaskWithState(readTask, source, sqlBulkCopy,
+                                    AsyncHelper.ContinueTaskWithState(readTask.AsTask(), source, sqlBulkCopy,
                                         onSuccess: (object state2) => ((SqlBulkCopy)state2).CopyRowsAsync(i + 1, totalRows, cts, source),
                                         connectionToDoom: _connection.GetOpenTdsConnection()
                                     );
@@ -3056,29 +3033,15 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
 
             try
             {
-                Task readTask = ReadFromRowSourceAsync(ctoken); // readTask == reading task. This is the first read call. "more" is valid only if readTask == null;
-
-                if (readTask != null)
-                {
-                    Debug.Assert(_isAsyncBulkCopy, "Read must not return a Task in the Sync mode");
-                    await readTask.ConfigureAwait(false);
-                }
+                await ReadFromRowSourceAsync(ctoken).ConfigureAwait(false); // readTask == reading task. This is the first read call. "more" is valid only if readTask == null;
 
                 if (_hasMoreRowToCopy)
                 {   // True, we have more rows.
                     WriteToServerInternalRestAsync(ctoken, source); //rest of the method, passing the same completion and returning the incomplete task (ret).
-                    await source.Task;
-                }
-            }
-            catch (Exception ex)
-            {
-                if (source != null)
-                {
-                    source.TrySetException(ex);
-                }
-                else
-                {
-                    throw;
+                    if (source != null)
+                    {
+                        await source.Task.ConfigureAwait(false);
+                    }
                 }
             }
             finally
