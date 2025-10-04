@@ -2247,18 +2247,6 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
             return writeTask;
         }
 
-        private Task<T> RegisterForConnectionCloseNotification<T>(Task<T> outerTask)
-        {
-            SqlConnection connection = _connection;
-            if (connection == null)
-            {
-                // No connection
-                throw ADP.ClosedConnectionError();
-            }
-
-            return connection.RegisterForConnectionCloseNotification(outerTask, this, SqlReferenceCollection.BulkCopyTag);
-        }
-
         // Runs a loop to copy all columns of a single row.
         // Maintains a state by remembering #columns copied so far (int col).
         // Returned Task could be null in two cases: (1) _isAsyncBulkCopy == false, (2) _isAsyncBulkCopy == true but all async writes finished synchronously.
@@ -3059,7 +3047,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
         // This returns Task for Async, Null for Sync
         private async ValueTask WriteToServerInternalAsync(CancellationToken ctoken)
         {
-            TaskCompletionSource<object> source = null;
+            TaskCompletionSource<object> source = _isAsyncBulkCopy ? new() : null;
 
             if (_destinationTableName == null)
             {
@@ -3097,6 +3085,9 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
             {
                 if (_isAsyncBulkCopy)
                 {
+                    SqlConnection connection = _connection
+                        ?? throw ADP.ClosedConnectionError();
+
                     _connection.RemoveWeakReference(this);
                 }
             }
