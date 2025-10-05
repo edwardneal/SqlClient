@@ -2332,24 +2332,6 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
             }
         }
 
-        // Checks for cancellation. If cancel requested, cancels the task and returns the cancelled task
-        private Task CheckForCancellation(CancellationToken cts, TaskCompletionSource<object> tcs)
-        {
-            if (cts.IsCancellationRequested)
-            {
-                if (tcs == null)
-                {
-                    tcs = new TaskCompletionSource<object>();
-                }
-                tcs.SetCanceled();
-                return tcs.Task;
-            }
-            else
-            {
-                return null;
-            }
-        }
-
         // Copies all the rows in a batch.
         // Maintains state machine with state variable: rowSoFar.
         // Returned Task could be null in two cases: (1) _isAsyncBulkCopy == false, or (2) _isAsyncBulkCopy == true but all async writes finished synchronously.
@@ -2363,13 +2345,9 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                 // totalRows is batchsize which is 0 by default. In that case, we keep copying till the end (until _hasMoreRowToCopy == false).
                 for (i = rowsSoFar; (totalRows <= 0 || i < totalRows) && _hasMoreRowToCopy == true; i++)
                 {
-                    if (_isAsyncBulkCopy == true)
+                    if (_isAsyncBulkCopy)
                     {
-                        resultTask = CheckForCancellation(cts, source);
-                        if (resultTask != null)
-                        {
-                            return resultTask; // Task got cancelled!
-                        }
+                        cts.ThrowIfCancellationRequested();
                     }
 
                     _stateObj.WriteByte(TdsEnums.SQLROW);
