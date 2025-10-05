@@ -2866,7 +2866,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
         // It carries on the source from its caller WriteToServerInternal.
         // source is null in case of Sync bcp. But valid in case of Async bcp.
         // It calls the WriteToServerInternalRestContinuedAsync as a continuation of the initial query task.
-        private void WriteToServerInternalRestAsync(CancellationToken cts, TaskCompletionSource<object> source)
+        private async ValueTask WriteToServerInternalRestAsync(CancellationToken cts, TaskCompletionSource<object> source)
         {
             Debug.Assert(_hasMoreRowToCopy, "first time it is true, otherwise this method would not have been called.");
             _hasMoreRowToCopy = true;
@@ -2879,6 +2879,8 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                 _parser._asyncWrite = _isAsyncBulkCopy; // Very important!
 
                 Task reconnectTask;
+                StrongBox<CancellationTokenRegistration> regReconnectCancel = null;
+
                 try
                 {
                     reconnectTask = _connection.ValidateAndReconnect(
@@ -2890,84 +2892,53 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                                 _parserLock = null;
                             }
                         }, BulkCopyTimeout);
+
+                    if (reconnectTask is not null)
+                    {
+                        if (_isAsyncBulkCopy)
+                        {
+#if NET
+                            await reconnectTask.WaitAsync(cts).ConfigureAwait(false);
+#else
+                            regReconnectCancel = new StrongBox<CancellationTokenRegistration>(new CancellationTokenRegistration());
+                            TaskCompletionSource<object> cancellableReconnectTS = new TaskCompletionSource<object>();
+                            if (cts.CanBeCanceled)
+                            {
+                                regReconnectCancel.Value = cts.Register(
+                                    static tcs => ((TaskCompletionSource<object>)tcs).TrySetCanceled(),
+                                    cancellableReconnectTS);
+                            }
+
+                            await Task.WhenAny(reconnectTask, cancellableReconnectTS.Task).ConfigureAwait(false);
+#endif
+
+                            if (_parserLock != null)
+                            {
+                                _parserLock.Release();
+                                _parserLock = null;
+                            }
+
+                            _parserLock = _connection.GetOpenTdsConnection()._parserLock;
+                            _parserLock.Wait(canReleaseFromAnyThread: _isAsyncBulkCopy);
+
+                            await WriteToServerInternalRestAsync(cts, source);
+                            return;
+                        }
+                        else
+                        {
+                            AsyncHelper.WaitForCompletion(reconnectTask, BulkCopyTimeout, static () => throw SQL.CR_ReconnectTimeout());
+                        }
+                    }
                 }
                 catch (SqlException ex)
                 {
                     throw SQL.BulkLoadInvalidDestinationTable(_destinationTableName, ex);
                 }
-
-                if (reconnectTask != null)
+                finally
                 {
-                    if (_isAsyncBulkCopy)
-                    {
-                        StrongBox<CancellationTokenRegistration> regReconnectCancel = new StrongBox<CancellationTokenRegistration>(new CancellationTokenRegistration());
-                        TaskCompletionSource<object> cancellableReconnectTS = new TaskCompletionSource<object>();
-                        if (cts.CanBeCanceled)
-                        {
-                            regReconnectCancel.Value = cts.Register(
-                                static tcs => ((TaskCompletionSource<object>)tcs).TrySetCanceled(),
-                                cancellableReconnectTS);
-                        }
-
-                        AsyncHelper.ContinueTaskWithState(
-                            reconnectTask,
-                            cancellableReconnectTS,
-                            state: cancellableReconnectTS,
-                            onSuccess: static state => ((TaskCompletionSource<object>)state).SetResult(null));
-
-                        // No need to cancel timer since SqlBulkCopy creates specific task source for reconnection.
-                        AsyncHelper.SetTimeoutExceptionWithState(
-                            completion: cancellableReconnectTS, 
-                            timeout: BulkCopyTimeout,
-                            state: _destinationTableName,
-                            onFailure: static state => 
-                                SQL.BulkLoadInvalidDestinationTable((string)state, SQL.CR_ReconnectTimeout()), 
-                            cancellationToken: CancellationToken.None
-                        );
-
-                        AsyncHelper.ContinueTaskWithState(
-                            task: cancellableReconnectTS.Task,
-                            completion: source,
-                            state: regReconnectCancel,
-                            onSuccess: (object state) =>
-                            {
-                                ((StrongBox<CancellationTokenRegistration>)state).Value.Dispose();
-                                if (_parserLock != null)
-                                {
-                                    _parserLock.Release();
-                                    _parserLock = null;
-                                }
-                                _parserLock = _connection.GetOpenTdsConnection()._parserLock;
-                                _parserLock.Wait(canReleaseFromAnyThread: true);
-                                WriteToServerInternalRestAsync(cts, source);
-                            },
-                            connectionToAbort: _connection,
-                            onFailure: static (_, state) => ((StrongBox<CancellationTokenRegistration>)state).Value.Dispose(),
-                            onCancellation: static state => ((StrongBox<CancellationTokenRegistration>)state).Value.Dispose(),
-                            #if NET
-                            exceptionConverter: ex => SQL.BulkLoadInvalidDestinationTable(_destinationTableName, ex)
-                            #else
-                            exceptionConverter: (ex, _) => SQL.BulkLoadInvalidDestinationTable(_destinationTableName, ex)
-                            #endif
-                        );
-                        return;
-                    }
-                    else
-                    {
-                        try
-                        {
-                            AsyncHelper.WaitForCompletion(reconnectTask, BulkCopyTimeout, static () => throw SQL.CR_ReconnectTimeout());
-                        }
-                        catch (SqlException ex)
-                        {
-                            throw SQL.BulkLoadInvalidDestinationTable(_destinationTableName, ex); // Preserve behavior (throw InvalidOperationException on failure to connect)
-                        }
-                        _parserLock = _connection.GetOpenTdsConnection()._parserLock;
-                        _parserLock.Wait(canReleaseFromAnyThread: false);
-                        WriteToServerInternalRestAsync(cts, source);
-                        return;
-                    }
+                    regReconnectCancel?.Value.Dispose();
                 }
+
                 if (_isAsyncBulkCopy)
                 {
                     _connection.AddWeakReference(this, SqlReferenceCollection.BulkCopyTag);
@@ -2995,29 +2966,20 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                     throw SQL.BulkLoadInvalidDestinationTable(_destinationTableName, ex);
                 }
 
-                if (internalResultsTask != null)
+                if (internalResultsTask is not null)
                 {
-                    AsyncHelper.ContinueTaskWithState(internalResultsTask, source, this,
-                        onSuccess: (object state) => ((SqlBulkCopy)state).WriteToServerInternalRestContinuedAsync(internalResultsTask.Result, cts, source),
-                        connectionToDoom: _connection.GetOpenTdsConnection()
-                    );
+                    internalResults = await internalResultsTask;
                 }
                 else
                 {
                     Debug.Assert(internalResults != null, "Executing initial query finished synchronously, but there were no results");
-                    WriteToServerInternalRestContinuedAsync(internalResults, cts, source); // internalResults is valid here.
                 }
+
+                WriteToServerInternalRestContinuedAsync(internalResults, cts, source);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                if (source != null)
-                {
-                    source.TrySetException(ex);
-                }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
         }
 
@@ -3037,7 +2999,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
 
                 if (_hasMoreRowToCopy)
                 {   // True, we have more rows.
-                    WriteToServerInternalRestAsync(ctoken, source); //rest of the method, passing the same completion and returning the incomplete task (ret).
+                    await WriteToServerInternalRestAsync(ctoken, source); //rest of the method, passing the same completion and returning the incomplete task (ret).
                     if (source != null)
                     {
                         await source.Task.ConfigureAwait(false);
