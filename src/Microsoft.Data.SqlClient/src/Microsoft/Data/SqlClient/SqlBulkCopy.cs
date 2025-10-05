@@ -2724,10 +2724,11 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
         // It carries on the source which is passed from the WriteToServerInternalRest and performs SetResult when the entire copy is done.
         // The carried on source may be null in case of Sync copy. So no need to SetResult at that time.
         // It launches the copy operation.
-        private void WriteToServerInternalRestContinuedAsync(BulkCopySimpleResultSet internalResults, CancellationToken cts, TaskCompletionSource<object> source)
+        private async ValueTask WriteToServerInternalRestContinuedAsync(BulkCopySimpleResultSet internalResults, CancellationToken cts)
         {
             Task task = null;
             string updateBulkCommandText = null;
+            bool shouldCancel = false;
 
             try
             {
@@ -2751,97 +2752,26 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
 
                 if (task != null)
                 {
-                    if (source == null)
-                    {
-                        source = new TaskCompletionSource<object>();
-                    }
-                    AsyncHelper.ContinueTaskWithState(task, source, this,
-                        onSuccess: (object state) =>
-                        {
-                            SqlBulkCopy sqlBulkCopy = (SqlBulkCopy)state;
-                            // Bulk copy task is completed at this moment.
-                            if (task.IsCanceled)
-                            {
-                                sqlBulkCopy._localColumnMappings = null;
-                                try
-                                {
-                                    sqlBulkCopy.CleanUpStateObject();
-                                }
-                                finally
-                                {
-                                    source.SetCanceled();
-                                }
-                            }
-                            else if (task.Exception != null)
-                            {
-                                source.SetException(task.Exception.InnerException);
-                            }
-                            else
-                            {
-                                sqlBulkCopy._localColumnMappings = null;
-                                try
-                                {
-                                    sqlBulkCopy.CleanUpStateObject(isCancelRequested: false);
-                                }
-                                finally
-                                {
-                                    if (source != null)
-                                    {
-                                        if (cts.IsCancellationRequested)
-                                        {   // We may get cancellation req even after the entire copy.
-                                            source.SetCanceled();
-                                        }
-                                        else
-                                        {
-                                            source.SetResult(null);
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        connectionToDoom: _connection.GetOpenTdsConnection()
-                    );
-                    return;
-                }
-                else
-                {
-                    _localColumnMappings = null;
-
-                    try
-                    {
-                        CleanUpStateObject(isCancelRequested: false);
-                    }
-                    catch (Exception cleanupEx)
-                    {
-                        Debug.Fail($"Unexpected exception during {nameof(CleanUpStateObject)} (ignored)", cleanupEx.ToString());
-                    }
-
-                    if (source != null)
-                    {
-                        source.SetResult(null);
-                    }
+                    await task;
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
+            {
+                shouldCancel = true;
+                throw;
+            }
+            finally
             {
                 _localColumnMappings = null;
+                shouldCancel |= cts.IsCancellationRequested;
 
                 try
                 {
-                    CleanUpStateObject();
+                    CleanUpStateObject(isCancelRequested: shouldCancel);
                 }
                 catch (Exception cleanupEx)
                 {
                     Debug.Fail($"Unexpected exception during {nameof(CleanUpStateObject)} (ignored)", cleanupEx.ToString());
-                }
-
-                if (source != null)
-                {
-                    source.TrySetException(ex);
-                }
-                else
-                {
-                    throw;
                 }
             }
         }
@@ -2850,7 +2780,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
         // It carries on the source from its caller WriteToServerInternal.
         // source is null in case of Sync bcp. But valid in case of Async bcp.
         // It calls the WriteToServerInternalRestContinuedAsync as a continuation of the initial query task.
-        private async ValueTask WriteToServerInternalRestAsync(CancellationToken cts, TaskCompletionSource<object> source)
+        private async ValueTask WriteToServerInternalRestAsync(CancellationToken cts)
         {
             Debug.Assert(_hasMoreRowToCopy, "first time it is true, otherwise this method would not have been called.");
             _hasMoreRowToCopy = true;
@@ -2904,7 +2834,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                             _parserLock = _connection.GetOpenTdsConnection()._parserLock;
                             _parserLock.Wait(canReleaseFromAnyThread: _isAsyncBulkCopy);
 
-                            await WriteToServerInternalRestAsync(cts, source);
+                            await WriteToServerInternalRestAsync(cts);
                             return;
                         }
                         else
@@ -2949,7 +2879,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                     throw SQL.BulkLoadInvalidDestinationTable(_destinationTableName, ex);
                 }
 
-                WriteToServerInternalRestContinuedAsync(internalResults, cts, source);
+                await WriteToServerInternalRestContinuedAsync(internalResults, cts);
             }
             catch (Exception)
             {
@@ -2960,8 +2890,6 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
         // This returns Task for Async, Null for Sync
         private async ValueTask WriteToServerInternalAsync(CancellationToken ctoken)
         {
-            TaskCompletionSource<object> source = _isAsyncBulkCopy ? new() : null;
-
             if (_destinationTableName == null)
             {
                 throw SQL.BulkLoadMissingDestinationTable();
@@ -2973,11 +2901,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
 
                 if (_hasMoreRowToCopy)
                 {   // True, we have more rows.
-                    await WriteToServerInternalRestAsync(ctoken, source); //rest of the method, passing the same completion and returning the incomplete task (ret).
-                    if (source != null)
-                    {
-                        await source.Task.ConfigureAwait(false);
-                    }
+                    await WriteToServerInternalRestAsync(ctoken); //rest of the method, passing the same completion and returning the incomplete task (ret).
                 }
             }
             finally
