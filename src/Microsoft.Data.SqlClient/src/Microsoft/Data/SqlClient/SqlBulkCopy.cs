@@ -825,32 +825,16 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
             return orderHintText.ToString();
         }
 
-        private Task SubmitUpdateBulkCommand(string TDSCommand)
+        private async ValueTask SubmitUpdateBulkCommand(string TDSCommand)
         {
             SqlClientEventSource.Log.TryCorrelationTraceEvent("SqlBulkCopy.SubmitUpdateBulkCommand | Info | Correlation | Object Id {0}, Activity Id {1}", ObjectID, ActivityCorrelator.Current);
             Task executeTask = _parser.TdsExecuteSQLBatch(TDSCommand, BulkCopyTimeout, null, _stateObj, sync: !_isAsyncBulkCopy, callerHasConnectionLock: true);
 
-            if (executeTask == null)
+            if (executeTask is not null)
             {
-                RunParser();
-                return null;
+                await executeTask;
             }
-            else
-            {
-                Debug.Assert(_isAsyncBulkCopy, "Execution pended when not doing async bulk copy");
-                return executeTask.ContinueWith(t =>
-                {
-                    Debug.Assert(!t.IsCanceled, "Execution task was canceled");
-                    if (t.IsFaulted)
-                    {
-                        throw t.Exception.InnerException;
-                    }
-                    else
-                    {
-                        RunParserReliably();
-                    }
-                }, TaskScheduler.Default);
-            }
+            RunParser();
         }
 
         // Starts writing the Bulkcopy data stream
@@ -2487,11 +2471,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                         }
                     }
 
-                    Task commandTask = SubmitUpdateBulkCommand(updateBulkCommandText);                    
-                    if (commandTask is not null)
-                    {
-                        await commandTask;
-                    }
+                    await SubmitUpdateBulkCommand(updateBulkCommandText);
 
                     WriteMetaData(internalResults);
 
