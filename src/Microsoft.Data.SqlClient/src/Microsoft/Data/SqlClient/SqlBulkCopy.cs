@@ -505,7 +505,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
             if (executeTask != null)
             {
                 Debug.Assert(_isAsyncBulkCopy, "Execution pended when not doing async bulk copy");
-                await executeTask;
+                await executeTask.ConfigureAwait(false);
             }
 
             RunParser(result);
@@ -832,7 +832,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
 
             if (executeTask is not null)
             {
-                await executeTask;
+                await executeTask.ConfigureAwait(false);
             }
             RunParser();
         }
@@ -1833,7 +1833,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                 _isAsyncBulkCopy = true;
                 
                 // It returns Task since _isAsyncBulkCopy = true;
-                await WriteRowSourceToServerAsync(table.Columns.Count, cancellationToken); 
+                await WriteRowSourceToServerAsync(table.Columns.Count, cancellationToken).ConfigureAwait(false); 
             }
             finally
             {
@@ -1874,7 +1874,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                 _isAsyncBulkCopy = true;
                 
                 // It returns Task since _isAsyncBulkCopy = true;
-                await WriteRowSourceToServerAsync(reader.FieldCount, cancellationToken);
+                await WriteRowSourceToServerAsync(reader.FieldCount, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -1914,7 +1914,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                 _isAsyncBulkCopy = true;
                 
                 // It returns Task since _isAsyncBulkCopy = true;
-                await WriteRowSourceToServerAsync(reader.FieldCount, cancellationToken);
+                await WriteRowSourceToServerAsync(reader.FieldCount, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -1962,7 +1962,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                 _isAsyncBulkCopy = true;
                 
                 // It returns Task since _isAsyncBulkCopy = true;
-                await WriteRowSourceToServerAsync(table.Columns.Count, cancellationToken);
+                await WriteRowSourceToServerAsync(table.Columns.Count, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -1984,7 +1984,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
             {
                 if (_isAsyncBulkCopy)
                 {
-                    await reconnectTask;
+                    await reconnectTask.ConfigureAwait(false);
                 }
                 else
                 {
@@ -2005,7 +2005,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
             try
             {
                 WriteRowSourceToServerCommon(columnCount); // This is common in both sync and async
-                await WriteToServerInternalAsync(ctoken); // resultTask is null for sync, but Task for async.
+                await WriteToServerInternalAsync(ctoken).ConfigureAwait(false); // resultTask is null for sync, but Task for async.
             }
             // @TODO: CER Exception Handling was removed here (see GH#3581)
             finally
@@ -2191,7 +2191,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
 
             if (writeTask is not null)
             {
-                await writeTask;
+                await writeTask.ConfigureAwait(false);
             }
         }
 
@@ -2202,7 +2202,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
         {
             for (int i = 0; i < _sortedColumnMappings.Count; i++)
             {
-                await ReadWriteColumnValueAsync(i); //First reads and then writes one cell value. Task 'task' is completed when reading task and writing task both are complete.
+                await ReadWriteColumnValueAsync(i).ConfigureAwait(false); //First reads and then writes one cell value. Task 'task' is completed when reading task and writing task both are complete.
             }
         }
 
@@ -2297,10 +2297,10 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
 
                     _stateObj.WriteByte(TdsEnums.SQLROW);
 
-                    await CopyColumnsAsync(); // Copy 1 row
+                    await CopyColumnsAsync().ConfigureAwait(false); // Copy 1 row
 
                     CheckAndRaiseNotification(); // Check notification logic after copying the row
-                    await ReadFromRowSourceAsync(cts); // Read the next row. Caution: more is only valid if the task returns null. Otherwise, we wait for Task.Result
+                    await ReadFromRowSourceAsync(cts).ConfigureAwait(false); // Read the next row. Caution: more is only valid if the task returns null. Otherwise, we wait for Task.Result
                 }
             }
             catch (Exception)
@@ -2334,7 +2334,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                         }
                     }
 
-                    await SubmitUpdateBulkCommand(updateBulkCommandText);
+                    await SubmitUpdateBulkCommand(updateBulkCommandText).ConfigureAwait(false);
 
                     WriteMetaData(internalResults);
 
@@ -2350,7 +2350,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                         Task writeTask = _parser.WriteBulkCopyDone(_stateObj);
                         if (writeTask is not null)
                         {
-                            await writeTask;
+                            await writeTask.ConfigureAwait(false);
                         }
                         RunParser();
                         CommitTransaction();
@@ -2442,7 +2442,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                         _currentRowMetadata[i] = GetColumnMetadata(i);
                     }
 
-                    await CopyBatchesAsync(internalResults, updateBulkCommandText, cts); // Launch the BulkCopy
+                    await CopyBatchesAsync(internalResults, updateBulkCommandText, cts).ConfigureAwait(false); // Launch the BulkCopy
                 }
             }
             catch (Exception)
@@ -2524,7 +2524,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                             _parserLock = _connection.GetOpenTdsConnection()._parserLock;
                             _parserLock.Wait(canReleaseFromAnyThread: _isAsyncBulkCopy);
 
-                            await WriteToServerInternalRestAsync(cts);
+                            await WriteToServerInternalRestAsync(cts).ConfigureAwait(false);
                             return;
                         }
                         else
@@ -2562,14 +2562,14 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
 
                 try
                 {
-                    internalResults = await CreateAndExecuteInitialQueryAsync();
+                    internalResults = await CreateAndExecuteInitialQueryAsync().ConfigureAwait(false);
                 }
                 catch (SqlException ex)
                 {
                     throw SQL.BulkLoadInvalidDestinationTable(_destinationTableName, ex);
                 }
 
-                await WriteToServerInternalRestContinuedAsync(internalResults, cts);
+                await WriteToServerInternalRestContinuedAsync(internalResults, cts).ConfigureAwait(false);
             }
             catch (Exception)
             {
@@ -2591,7 +2591,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
 
                 if (_hasMoreRowToCopy)
                 {   // True, we have more rows.
-                    await WriteToServerInternalRestAsync(ctoken); //rest of the method, passing the same completion and returning the incomplete task (ret).
+                    await WriteToServerInternalRestAsync(ctoken).ConfigureAwait(false); //rest of the method, passing the same completion and returning the incomplete task (ret).
                 }
             }
             finally
