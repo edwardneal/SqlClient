@@ -2335,15 +2335,12 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
         // Copies all the rows in a batch.
         // Maintains state machine with state variable: rowSoFar.
         // Returned Task could be null in two cases: (1) _isAsyncBulkCopy == false, or (2) _isAsyncBulkCopy == true but all async writes finished synchronously.
-        private Task CopyRowsAsync(int rowsSoFar, int totalRows, CancellationToken cts, TaskCompletionSource<object> source = null)
+        private async ValueTask CopyRowsAsync(int totalRows, CancellationToken cts)
         {
-            Task resultTask = null;
-            Task task = null;
-            int i;
             try
             {
                 // totalRows is batchsize which is 0 by default. In that case, we keep copying till the end (until _hasMoreRowToCopy == false).
-                for (i = rowsSoFar; (totalRows <= 0 || i < totalRows) && _hasMoreRowToCopy == true; i++)
+                for (int i = 0; (totalRows <= 0 || i < totalRows) && _hasMoreRowToCopy == true; i++)
                 {
                     if (_isAsyncBulkCopy)
                     {
@@ -2352,76 +2349,20 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
 
                     _stateObj.WriteByte(TdsEnums.SQLROW);
 
-                    task = CopyColumnsAsync(0); // Copy 1 row
-
-                    if (task == null)
-                    {   // Task is done.
-                        CheckAndRaiseNotification(); // Check notification logic after copying the row
-
-                        // Now we will read the next row.
-                        ValueTask readTask = ReadFromRowSourceAsync(cts); // Read the next row. Caution: more is only valid if the task returns null. Otherwise, we wait for Task.Result
-                        if (!readTask.IsCompleted)
-                        {
-                            if (source == null)
-                            {
-                                source = new TaskCompletionSource<object>();
-                            }
-                            resultTask = source.Task;
-
-                            AsyncHelper.ContinueTaskWithState(readTask.AsTask(), source, this,
-                                onSuccess: (object state) => ((SqlBulkCopy)state).CopyRowsAsync(i + 1, totalRows, cts, source),
-                                connectionToDoom: _connection.GetOpenTdsConnection()
-                            );
-                            return resultTask; // Associated task will be completed when all rows are copied to server/exception/cancelled.
-                        }
+                    Task task = CopyColumnsAsync(0); // Copy 1 row
+                    if (task is not null)
+                    {
+                        await task;
                     }
-                    else
-                    {   // task != null, so add continuation for it.
-                        source = source ?? new TaskCompletionSource<object>();
-                        resultTask = source.Task;
 
-                        AsyncHelper.ContinueTaskWithState(task, source, this,
-                            onSuccess: (object state) =>
-                            {
-                                SqlBulkCopy sqlBulkCopy = (SqlBulkCopy)state;
-                                sqlBulkCopy.CheckAndRaiseNotification(); // Check for notification now as the current row copy is done at this moment.
-
-                                ValueTask readTask = sqlBulkCopy.ReadFromRowSourceAsync(cts);
-                                if (readTask.IsCompleted)
-                                {
-                                    sqlBulkCopy.CopyRowsAsync(i + 1, totalRows, cts, source);
-                                }
-                                else
-                                {
-                                    AsyncHelper.ContinueTaskWithState(readTask.AsTask(), source, sqlBulkCopy,
-                                        onSuccess: (object state2) => ((SqlBulkCopy)state2).CopyRowsAsync(i + 1, totalRows, cts, source),
-                                        connectionToDoom: _connection.GetOpenTdsConnection()
-                                    );
-                                }
-                            },
-                            connectionToDoom: _connection.GetOpenTdsConnection()
-                        );
-                        return resultTask;
-                    }
-                }
-
-                if (source != null)
-                {
-                    source.TrySetResult(null); // This is set only on the last call of async copy. But may not be set if everything runs synchronously.
+                    CheckAndRaiseNotification(); // Check notification logic after copying the row
+                    await ReadFromRowSourceAsync(cts); // Read the next row. Caution: more is only valid if the task returns null. Otherwise, we wait for Task.Result
                 }
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                if (source != null)
-                {
-                    source.TrySetException(ex);
-                }
-                else
-                {
-                    throw;
-                }
+                throw;
             }
-            return resultTask;
         }
 
         // Copies all the batches in a loop. One iteration for one batch.
@@ -2460,16 +2401,12 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
 
                     try
                     {
-                        Task task = CopyRowsAsync(0, _savedBatchSize, cts); // This is copying 1 batch of rows and setting _hasMoreRowToCopy = true/false.
-                        if (task is not null)
-                        {
-                            await task;
-                        }
+                        await CopyRowsAsync(_savedBatchSize, cts); // This is copying 1 batch of rows and setting _hasMoreRowToCopy = true/false.
 
                         Task writeTask = _parser.WriteBulkCopyDone(_stateObj);
-                        if (task is not null)
+                        if (writeTask is not null)
                         {
-                            await task;
+                            await writeTask;
                         }
                         RunParser();
                         CommitTransaction();
