@@ -494,38 +494,22 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
         // When __isAsyncBulkCopy == false (i.e. it is Sync copy): out result contains the resulset. Returns null.
         // When __isAsyncBulkCopy == true (i.e. it is Async copy): This still uses the _parser.Run method synchronously and return Task<BulkCopySimpleResultSet>.
         // We need to have a _parser.RunAsync to make it real async.
-        private Task<BulkCopySimpleResultSet> CreateAndExecuteInitialQueryAsync(out BulkCopySimpleResultSet result)
+        private async ValueTask<BulkCopySimpleResultSet> CreateAndExecuteInitialQueryAsync()
         {
             string TDSCommand = CreateInitialQuery();
             SqlClientEventSource.Log.TryTraceEvent("SqlBulkCopy.CreateAndExecuteInitialQueryAsync | Info | Initial Query: '{0}'", TDSCommand);
             SqlClientEventSource.Log.TryCorrelationTraceEvent("SqlBulkCopy.CreateAndExecuteInitialQueryAsync | Info | Correlation | Object Id {0}, Activity Id {1}", ObjectID, ActivityCorrelator.Current);
             Task executeTask = _parser.TdsExecuteSQLBatch(TDSCommand, BulkCopyTimeout, null, _stateObj, sync: !_isAsyncBulkCopy, callerHasConnectionLock: true);
+            BulkCopySimpleResultSet result = new();
 
-            if (executeTask == null)
-            {
-                result = new BulkCopySimpleResultSet();
-                RunParser(result);
-                return null;
-            }
-            else
+            if (executeTask != null)
             {
                 Debug.Assert(_isAsyncBulkCopy, "Execution pended when not doing async bulk copy");
-                result = null;
-                return executeTask.ContinueWith<BulkCopySimpleResultSet>(t =>
-                {
-                    Debug.Assert(!t.IsCanceled, "Execution task was canceled");
-                    if (t.IsFaulted)
-                    {
-                        throw t.Exception.InnerException;
-                    }
-                    else
-                    {
-                        var internalResult = new BulkCopySimpleResultSet();
-                        RunParserReliably(internalResult);
-                        return internalResult;
-                    }
-                }, TaskScheduler.Default);
+                await executeTask;
             }
+
+            RunParser(result);
+            return result;
         }
 
         // Matches associated columns with metadata from initial query.
@@ -2870,8 +2854,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
         {
             Debug.Assert(_hasMoreRowToCopy, "first time it is true, otherwise this method would not have been called.");
             _hasMoreRowToCopy = true;
-            Task<BulkCopySimpleResultSet> internalResultsTask = null;
-            BulkCopySimpleResultSet internalResults = new BulkCopySimpleResultSet();
+            BulkCopySimpleResultSet internalResults;
             SqlInternalConnectionTds internalConnection = _connection.GetOpenTdsConnection();
             try
             {
@@ -2959,20 +2942,11 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
 
                 try
                 {
-                    internalResultsTask = CreateAndExecuteInitialQueryAsync(out internalResults); // Task/Null
+                    internalResults = await CreateAndExecuteInitialQueryAsync();
                 }
                 catch (SqlException ex)
                 {
                     throw SQL.BulkLoadInvalidDestinationTable(_destinationTableName, ex);
-                }
-
-                if (internalResultsTask is not null)
-                {
-                    internalResults = await internalResultsTask;
-                }
-                else
-                {
-                    Debug.Assert(internalResults != null, "Executing initial query finished synchronously, but there were no results");
                 }
 
                 WriteToServerInternalRestContinuedAsync(internalResults, cts, source);
