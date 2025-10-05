@@ -2136,7 +2136,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
         // Read may block at this moment since there is no getValueAsync or DownStream async at this moment.
         // When _isAsyncBulkCopy == true: Write will return Task (when async method runs asynchronously) or Null (when async call actually ran synchronously) for performance.
         // When _isAsyncBulkCopy == false: Writes are purely sync. This method return null at the end.
-        private Task ReadWriteColumnValueAsync(int col)
+        private async ValueTask ReadWriteColumnValueAsync(int col)
         {
             bool isSqlType;
             bool isDataFeed;
@@ -2189,73 +2189,21 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                 }
             }
 
-            return writeTask;
+            if (writeTask is not null)
+            {
+                await writeTask;
+            }
         }
 
         // Runs a loop to copy all columns of a single row.
         // Maintains a state by remembering #columns copied so far (int col).
         // Returned Task could be null in two cases: (1) _isAsyncBulkCopy == false, (2) _isAsyncBulkCopy == true but all async writes finished synchronously.
-        private Task CopyColumnsAsync(int col, TaskCompletionSource<object> source = null)
+        private async ValueTask CopyColumnsAsync()
         {
-            Task resultTask = null, task = null;
-            int i;
-            try
+            for (int i = 0; i < _sortedColumnMappings.Count; i++)
             {
-                for (i = col; i < _sortedColumnMappings.Count; i++)
-                {
-                    task = ReadWriteColumnValueAsync(i); //First reads and then writes one cell value. Task 'task' is completed when reading task and writing task both are complete.
-                    if (task != null)
-                    {
-                        break; //task != null means we have a pending read/write Task.
-                    }
-                }
-                if (task != null)
-                {
-                    if (source == null)
-                    {
-                        source = new TaskCompletionSource<object>();
-                        resultTask = source.Task;
-                    }
-                    CopyColumnsAsyncSetupContinuation(source, task, i);
-                    return resultTask; //associated task will be completed when all columns (i.e. the entire row) is written
-                }
-                if (source != null)
-                {
-                    source.SetResult(null);
-                }
+                await ReadWriteColumnValueAsync(i); //First reads and then writes one cell value. Task 'task' is completed when reading task and writing task both are complete.
             }
-            catch (Exception ex)
-            {
-                if (source != null)
-                {
-                    source.TrySetException(ex);
-                }
-                else
-                {
-                    throw;
-                }
-            }
-            return resultTask;
-        }
-
-        // This is in its own method to avoid always allocating the lambda in CopyColumnsAsync
-        private void CopyColumnsAsyncSetupContinuation(TaskCompletionSource<object> source, Task task, int i)
-        {
-            AsyncHelper.ContinueTaskWithState(task, source, this,
-                onSuccess: (object state) =>
-                {
-                    SqlBulkCopy sqlBulkCopy = (SqlBulkCopy)state;
-                    if (i + 1 < sqlBulkCopy._sortedColumnMappings.Count)
-                    {
-                        sqlBulkCopy.CopyColumnsAsync(i + 1, source); //continue from the next column
-                    }
-                    else
-                    {
-                        source.SetResult(null);
-                    }
-                },
-                connectionToDoom: _connection.GetOpenTdsConnection()
-            );
         }
 
         // The notification logic.
@@ -2349,11 +2297,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
 
                     _stateObj.WriteByte(TdsEnums.SQLROW);
 
-                    Task task = CopyColumnsAsync(0); // Copy 1 row
-                    if (task is not null)
-                    {
-                        await task;
-                    }
+                    await CopyColumnsAsync(); // Copy 1 row
 
                     CheckAndRaiseNotification(); // Check notification logic after copying the row
                     await ReadFromRowSourceAsync(cts); // Read the next row. Caution: more is only valid if the task returns null. Otherwise, we wait for Task.Result
