@@ -1324,24 +1324,6 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
             }
         }
 
-        // Runs the _parser until it is done and ensures that ThreadHasParserLockForClose is correctly set and unset
-        // This takes care of setting up the Reliability Section, and will doom the connect if there is a catastrophic (OOM, StackOverflow, ThreadAbort) error
-        private void RunParserReliably(BulkCopySimpleResultSet bulkCopyHandler = null)
-        {
-            // In case of error while reading, we should let the connection know that we already own the _parserLock
-            SqlInternalConnectionTds internalConnection = _connection.GetOpenTdsConnection();
-            internalConnection.ThreadHasParserLockForClose = true;
-            try
-            {
-                // @TODO: CER Exception Handling was removed here (see GH#3581)
-                _parser.Run(RunBehavior.UntilDone, null, null, bulkCopyHandler, _stateObj);                
-            }
-            finally
-            {
-                internalConnection.ThreadHasParserLockForClose = false;
-            }
-        }
-
         private void CommitTransaction()
         {
             if (_internalTransaction != null)
@@ -2601,7 +2583,7 @@ EXEC {CatalogName}..{TableCollationsStoredProc} N'{SchemaName}.{TableName}';
                     SqlConnection connection = _connection
                         ?? throw ADP.ClosedConnectionError();
 
-                    _connection.RemoveWeakReference(this);
+                    connection.RemoveWeakReference(this);
                 }
             }
         }
