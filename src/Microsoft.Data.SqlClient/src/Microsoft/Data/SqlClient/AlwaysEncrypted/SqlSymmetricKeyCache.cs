@@ -52,64 +52,69 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
             Debug.Assert(cacheLookupKey.Length <= capacity, "We needed to allocate a larger array");
 #endif //DEBUG
 
-            // Acquire the lock to ensure thread safety when accessing the cache
-            _cacheLock.Wait();
-
-            try
+            // Lookup the key in cache
+            if (!(_cache.TryGetValue(cacheLookupKey, out SqlClientSymmetricKey? encryptionKey))
+                // A null cryptographic key is never added to the cache, but this null check satisfies the nullability warning.
+                || encryptionKey is null)
             {
-                // Lookup the key in cache
-                if (!(_cache.TryGetValue(cacheLookupKey, out SqlClientSymmetricKey? encryptionKey))
-                    // A null cryptographic key is never added to the cache, but this null check satisfies the nullability warning.
-                    || encryptionKey is null)
+                // Acquire the lock to ensure thread safety when modifying the cache
+                _cacheLock.Wait();
+
+                try
                 {
-                    Debug.Assert(SqlConnection.ColumnEncryptionTrustedMasterKeyPaths is not null, @"SqlConnection.ColumnEncryptionTrustedMasterKeyPaths should not be null");
-
-                    SqlSecurityUtility.ThrowIfKeyPathIsNotTrustedForServer(serverName, keyInfo.keyPath);
-
-                    // Key Not found, attempt to look up the provider and decrypt CEK
-                    if (!SqlSecurityUtility.TryGetColumnEncryptionKeyStoreProvider(keyInfo.keyStoreName, out SqlColumnEncryptionKeyStoreProvider provider, connection, command))
+                    // Perform a second check to see if the key was added to the cache while waiting for the lock, to avoid redundant work.
+                    if (!(_cache.TryGetValue(cacheLookupKey, out encryptionKey))
+                        || encryptionKey is null)
                     {
-                        throw SQL.UnrecognizedKeyStoreProviderName(keyInfo.keyStoreName,
-                                SqlConnection.GetColumnEncryptionSystemKeyStoreProvidersNames(),
-                                SqlSecurityUtility.GetListOfProviderNamesThatWereSearched(connection, command));
-                    }
+                        Debug.Assert(SqlConnection.ColumnEncryptionTrustedMasterKeyPaths is not null, @"SqlConnection.ColumnEncryptionTrustedMasterKeyPaths should not be null");
 
-                    // Decrypt the CEK
-                    // We will simply bubble up the exception from the DecryptColumnEncryptionKey function.
-                    byte[] plaintextKey;
-                    try
-                    {
-                        // AKV provider registration supports multi-user scenarios, so it is not safe to cache the CEK in the global provider.
-                        // The CEK cache is a global cache, and is shared across all connections.
-                        // To prevent conflicts between CEK caches, global providers should not use their own CEK caches
-                        provider.ColumnEncryptionKeyCacheTtl = TimeSpan.Zero;
-                        plaintextKey = provider.DecryptColumnEncryptionKey(keyInfo.keyPath, keyInfo.algorithmName, keyInfo.encryptedKey);
-                    }
-                    catch (Exception e)
-                    {
-                        // Generate a new exception and throw.
-                        string keyHex = SqlSecurityUtility.GetBytesAsString(keyInfo.encryptedKey, fLast: true, countOfBytes: 10);
-                        throw SQL.KeyDecryptionFailed(keyInfo.keyStoreName, keyHex, e);
-                    }
+                        SqlSecurityUtility.ThrowIfKeyPathIsNotTrustedForServer(serverName, keyInfo.keyPath);
 
-                    encryptionKey = new SqlClientSymmetricKey(plaintextKey);
+                        // Key Not found, attempt to look up the provider and decrypt CEK
+                        if (!SqlSecurityUtility.TryGetColumnEncryptionKeyStoreProvider(keyInfo.keyStoreName, out SqlColumnEncryptionKeyStoreProvider provider, connection, command))
+                        {
+                            throw SQL.UnrecognizedKeyStoreProviderName(keyInfo.keyStoreName,
+                                    SqlConnection.GetColumnEncryptionSystemKeyStoreProvidersNames(),
+                                    SqlSecurityUtility.GetListOfProviderNamesThatWereSearched(connection, command));
+                        }
 
-                    // If the cache TTL is zero, don't even bother inserting to the cache.
-                    if (SqlConnection.ColumnEncryptionKeyCacheTtl != TimeSpan.Zero)
-                    {
-                        // In case multiple threads reach here at the same time, the first one wins.
-                        // The allocated memory will be reclaimed by Garbage Collector.
-                        _cache.Set(cacheLookupKey, encryptionKey, absoluteExpirationRelativeToNow: SqlConnection.ColumnEncryptionKeyCacheTtl);
+                        // Decrypt the CEK
+                        // We will simply bubble up the exception from the DecryptColumnEncryptionKey function.
+                        byte[] plaintextKey;
+                        try
+                        {
+                            // AKV provider registration supports multi-user scenarios, so it is not safe to cache the CEK in the global provider.
+                            // The CEK cache is a global cache, and is shared across all connections.
+                            // To prevent conflicts between CEK caches, global providers should not use their own CEK caches
+                            provider.ColumnEncryptionKeyCacheTtl = TimeSpan.Zero;
+                            plaintextKey = provider.DecryptColumnEncryptionKey(keyInfo.keyPath, keyInfo.algorithmName, keyInfo.encryptedKey);
+                        }
+                        catch (Exception e)
+                        {
+                            // Generate a new exception and throw.
+                            string keyHex = SqlSecurityUtility.GetBytesAsString(keyInfo.encryptedKey, fLast: true, countOfBytes: 10);
+                            throw SQL.KeyDecryptionFailed(keyInfo.keyStoreName, keyHex, e);
+                        }
+
+                        encryptionKey = new SqlClientSymmetricKey(plaintextKey);
+
+                        // If the cache TTL is zero, don't even bother inserting to the cache.
+                        if (SqlConnection.ColumnEncryptionKeyCacheTtl != TimeSpan.Zero)
+                        {
+                            // In case multiple threads reach here at the same time, the first one wins.
+                            // The allocated memory will be reclaimed by Garbage Collector.
+                            _cache.Set(cacheLookupKey, encryptionKey, absoluteExpirationRelativeToNow: SqlConnection.ColumnEncryptionKeyCacheTtl);
+                        }
                     }
                 }
+                finally
+                {
+                    // Release the lock to allow other threads to access the cache
+                    _cacheLock.Release();
+                }
+            }
 
-                return encryptionKey;
-            }
-            finally
-            {
-                // Release the lock to allow other threads to access the cache
-                _cacheLock.Release();
-            }
+            return encryptionKey;
         }
     }
 }
