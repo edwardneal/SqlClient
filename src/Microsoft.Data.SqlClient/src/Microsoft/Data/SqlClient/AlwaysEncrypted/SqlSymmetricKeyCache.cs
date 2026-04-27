@@ -8,23 +8,23 @@ using System.Text;
 using System.Threading;
 using Microsoft.Extensions.Caching.Memory;
 
-namespace Microsoft.Data.SqlClient
+namespace Microsoft.Data.SqlClient.AlwaysEncrypted
 {
     /// <summary>
     /// <para> Implements a cache of Symmetric Keys (once they are decrypted).Useful for rapidly decrypting multiple data values.</para>
     /// </summary>
-    sealed internal class SqlSymmetricKeyCache
+    sealed internal class SymmetricKeyCache
     {
         private readonly MemoryCache _cache;
-        private static readonly SqlSymmetricKeyCache _singletonInstance = new();
+        private static readonly SymmetricKeyCache _singletonInstance = new();
         private static SemaphoreSlim _cacheLock = new(1, 1);
 
-        private SqlSymmetricKeyCache()
+        private SymmetricKeyCache()
         {
             _cache = new MemoryCache(new MemoryCacheOptions());
         }
 
-        internal static SqlSymmetricKeyCache GetInstance()
+        internal static SymmetricKeyCache GetInstance()
         {
             return _singletonInstance;
         }
