@@ -8,6 +8,8 @@ using System.Text;
 using System.Threading;
 using Microsoft.Extensions.Caching.Memory;
 
+#nullable enable
+
 namespace Microsoft.Data.SqlClient.AlwaysEncrypted
 {
     /// <summary>
@@ -32,11 +34,11 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
         /// <summary>
         /// <para> Retrieves Symmetric Key (in plaintext) given the encryption material.</para>
         /// </summary>
-        internal SqlClientSymmetricKey GetKey(SqlEncryptionKeyInfo keyInfo, SqlConnection connection, SqlCommand command)
+        internal SqlClientSymmetricKey GetKey(SqlEncryptionKeyInfo keyInfo, SqlConnection connection, SqlCommand? command)
         {
             string serverName = connection.DataSource;
             Debug.Assert(serverName is not null, @"serverName should not be null.");
-            StringBuilder cacheLookupKeyBuilder = new(serverName, capacity: serverName.Length + SqlSecurityUtility.GetBase64LengthFromByteLength(keyInfo.encryptedKey.Length) + keyInfo.keyStoreName.Length + 2/*separators*/);
+            StringBuilder cacheLookupKeyBuilder = new(serverName, capacity: serverName!.Length + SqlSecurityUtility.GetBase64LengthFromByteLength(keyInfo.encryptedKey.Length) + keyInfo.keyStoreName.Length + 2/*separators*/);
 
 #if DEBUG
             int capacity = cacheLookupKeyBuilder.Capacity;
@@ -59,7 +61,9 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
             try
             {
                 // Lookup the key in cache
-                if (!(_cache.TryGetValue(cacheLookupKey, out SqlClientSymmetricKey encryptionKey)))
+                if (!(_cache.TryGetValue(cacheLookupKey, out SqlClientSymmetricKey? encryptionKey))
+                    // A null cryptographic key is never added to the cache, but this null check satisfies the nullability warning.
+                    || encryptionKey is null)
                 {
                     Debug.Assert(SqlConnection.ColumnEncryptionTrustedMasterKeyPaths is not null, @"SqlConnection.ColumnEncryptionTrustedMasterKeyPaths should not be null");
 
