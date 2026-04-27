@@ -227,7 +227,7 @@ namespace Microsoft.Data.SqlClient
             sqlClientSymmetricKey = null;
             encryptionkeyInfoChosen = null;
             Exception lastException = null;
-            SymmetricKeyCache globalCekCache = SymmetricKeyCache.GetInstance();
+            SymmetricKeyCache globalCekCache = SymmetricKeyCache.Instance;
 
             foreach (SqlEncryptionKeyInfo keyInfo in sqlTceCipherInfoEntry.ColumnEncryptionKeyValues)
             {

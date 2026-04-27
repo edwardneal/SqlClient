@@ -28,7 +28,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
         /// </summary>
         public static Assembly systemData = Assembly.GetAssembly(typeof(SqlConnection));
         public static Type SymmetricKeyCache = systemData.GetType("Microsoft.Data.SqlClient.AlwaysEncrypted.SymmetricKeyCache");
-        public static MethodInfo SymmetricKeyCacheGetInstance = SymmetricKeyCache.GetMethod("GetInstance", BindingFlags.Static | BindingFlags.NonPublic);
+        public static PropertyInfo SymmetricKeyCacheInstance = SymmetricKeyCache.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public);
         public static FieldInfo SymmetricKeyCacheFieldCache = SymmetricKeyCache.GetField("_cache", BindingFlags.Instance | BindingFlags.NonPublic);
 
         /// <summary>
@@ -36,7 +36,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests.AlwaysEncrypted
         /// </summary>
         internal static void CleanSqlClientCache()
         {
-            object sqlSymmetricKeyCache = SymmetricKeyCacheGetInstance.Invoke(null, null);
+            object sqlSymmetricKeyCache = SymmetricKeyCacheInstance.GetValue(null);
             MemoryCache cache = SymmetricKeyCacheFieldCache.GetValue(sqlSymmetricKeyCache) as MemoryCache;
             ClearCache(cache);
         }
