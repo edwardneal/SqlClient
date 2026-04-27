@@ -13,12 +13,12 @@ using Microsoft.Extensions.Caching.Memory;
 namespace Microsoft.Data.SqlClient.AlwaysEncrypted
 {
     /// <summary>
-    /// <para> Implements a cache of Symmetric Keys (once they are decrypted).Useful for rapidly decrypting multiple data values.</para>
+    /// Implements a cache of Symmetric Keys (once they are decrypted). Useful for rapidly decrypting multiple data values.
     /// </summary>
-    sealed internal class SymmetricKeyCache
+    internal sealed class SymmetricKeyCache
     {
         private readonly MemoryCache _cache;
-        private static SemaphoreSlim _cacheLock = new(1, 1);
+        private static readonly SemaphoreSlim s_cacheLock = new(1, 1);
 
         private SymmetricKeyCache()
         {
@@ -29,36 +29,32 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
             field ??= new();
 
         /// <summary>
-        /// <para> Retrieves Symmetric Key (in plaintext) given the encryption material.</para>
+        /// Retrieves Symmetric Key (in plaintext) given the encryption material.
         /// </summary>
-        internal SqlClientSymmetricKey GetKey(SqlEncryptionKeyInfo keyInfo, SqlConnection connection, SqlCommand? command)
+        public SqlClientSymmetricKey GetKey(SqlEncryptionKeyInfo keyInfo, SqlConnection connection, SqlCommand? command)
         {
             string serverName = connection.DataSource;
             Debug.Assert(serverName is not null, @"serverName should not be null.");
-            StringBuilder cacheLookupKeyBuilder = new(serverName, capacity: serverName!.Length + SqlSecurityUtility.GetBase64LengthFromByteLength(keyInfo.encryptedKey.Length) + keyInfo.keyStoreName.Length + 2/*separators*/);
+            int capacity = serverName!.Length + SqlSecurityUtility.GetBase64LengthFromByteLength(keyInfo.encryptedKey.Length) + keyInfo.keyStoreName.Length + 2 /* separators */;
+            StringBuilder cacheLookupKeyBuilder = new(serverName, capacity);
 
-#if DEBUG
-            int capacity = cacheLookupKeyBuilder.Capacity;
-#endif //DEBUG
-
-            cacheLookupKeyBuilder.Append(":");
+            cacheLookupKeyBuilder.Append(':');
             cacheLookupKeyBuilder.Append(Convert.ToBase64String(keyInfo.encryptedKey));
-            cacheLookupKeyBuilder.Append(":");
+            cacheLookupKeyBuilder.Append(':');
             cacheLookupKeyBuilder.Append(keyInfo.keyStoreName);
 
             string cacheLookupKey = cacheLookupKeyBuilder.ToString();
 
-#if DEBUG
             Debug.Assert(cacheLookupKey.Length <= capacity, "We needed to allocate a larger array");
-#endif //DEBUG
 
             // Lookup the key in cache
             if (!(_cache.TryGetValue(cacheLookupKey, out SqlClientSymmetricKey? encryptionKey))
                 // A null cryptographic key is never added to the cache, but this null check satisfies the nullability warning.
                 || encryptionKey is null)
             {
-                // Acquire the lock to ensure thread safety when modifying the cache
-                _cacheLock.Wait();
+                // Acquire the lock to ensure thread safety when modifying the cache, and to guarantee that only one thread calls
+                // DecryptColumnEncryptionKey on a user-provided SqlColumnEncryptionKeyStoreProvider at a time.
+                s_cacheLock.Wait();
 
                 try
                 {
@@ -110,7 +106,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
                 finally
                 {
                     // Release the lock to allow other threads to access the cache
-                    _cacheLock.Release();
+                    s_cacheLock.Release();
                 }
             }
 
