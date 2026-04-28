@@ -33,16 +33,19 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
         /// <summary>
         /// Encryption Key Salt. This is used to derive the encryption key from the root key.
         /// </summary>
+        /// <see href="https://learn.microsoft.com/en-us/sql/relational-databases/security/encryption/always-encrypted-cryptography?view=sql-server-ver17#step-2-computing-aes_256_cbc-ciphertext"/>
         private const string EncryptionKeySaltString = $"Microsoft SQL Server cell encryption key with encryption algorithm:{SqlAeadAes256CbcHmac256Algorithm.AlgorithmName} and key length:{KeySizeInBitsString}";
 
         /// <summary>
         /// MAC Key Salt. This is used to derive the MAC key from the root key.
         /// </summary>
+        /// <see href="https://learn.microsoft.com/en-us/sql/relational-databases/security/encryption/always-encrypted-cryptography?view=sql-server-ver17#step-3-computing-mac"/>
         private const string MacKeySaltString = $"Microsoft SQL Server cell MAC key with encryption algorithm:{SqlAeadAes256CbcHmac256Algorithm.AlgorithmName} and key length:{KeySizeInBitsString}";
 
         /// <summary>
         /// IV Key Salt. This is used to derive the IV key from the root key. This is only used for Deterministic encryption.
         /// </summary>
+        /// <see href="https://learn.microsoft.com/en-us/sql/relational-databases/security/encryption/always-encrypted-cryptography?view=sql-server-ver17#step-1-generating-the-initialization-vector-iv"/>
         private const string IvKeySaltString = $"Microsoft SQL Server cell IV key with encryption algorithm:{SqlAeadAes256CbcHmac256Algorithm.AlgorithmName} and key length:{KeySizeInBitsString}";
 
         private static byte[] EncryptionKeySalt =>
