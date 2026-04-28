@@ -61,7 +61,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
         /// Derives all the required keys from the given root key
         /// </summary>
         /// <param name="rootKey">Root key used to derive all the required derived keys</param>
-        internal AeadAes256CbcHmac256EncryptionKey(byte[] rootKey) : base(rootKey)
+        public AeadAes256CbcHmac256EncryptionKey(byte[] rootKey) : base(rootKey)
         {
             // Key validation
             if (rootKey.Length != KeySizeInBytes)
