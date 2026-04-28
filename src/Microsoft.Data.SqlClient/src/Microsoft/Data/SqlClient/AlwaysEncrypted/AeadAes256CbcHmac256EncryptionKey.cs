@@ -45,6 +45,13 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
         /// </summary>
         private const string IvKeySaltString = $"Microsoft SQL Server cell IV key with encryption algorithm:{SqlAeadAes256CbcHmac256Algorithm.AlgorithmName} and key length:{KeySizeInBitsString}";
 
+        private static byte[] EncryptionKeySalt =>
+            field ??= Encoding.Unicode.GetBytes(EncryptionKeySaltString);
+        private static byte[] MacKeySalt =>
+            field ??= Encoding.Unicode.GetBytes(MacKeySaltString);
+        private static byte[] IvKeySalt =>
+            field ??= Encoding.Unicode.GetBytes(IvKeySaltString);
+
         /// <summary>
         /// Derives all the required keys from the given root key
         /// </summary>
@@ -63,17 +70,17 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
             //
             // Derive encryption key
             byte[] buff1 = new byte[KeySizeInBytes];
-            SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(EncryptionKeySaltString), RootKey, buff1);
+            SqlSecurityUtility.GetHMACWithSHA256(EncryptionKeySalt, RootKey, buff1);
             EncryptionKey = buff1;
 
             // Derive mac key
             byte[] buff2 = new byte[KeySizeInBytes];
-            SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(MacKeySaltString), RootKey, buff2);
+            SqlSecurityUtility.GetHMACWithSHA256(MacKeySalt, RootKey, buff2);
             MACKey = buff2;
 
             // Derive iv key
             byte[] buff3 = new byte[KeySizeInBytes];
-            SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(IvKeySaltString), RootKey, buff3);
+            SqlSecurityUtility.GetHMACWithSHA256(IvKeySalt, RootKey, buff3);
             IVKey = buff3;
         }
 
