@@ -26,19 +26,24 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
         public const int KeySizeInBytes = KeySizeInBits / 8;
 
         /// <summary>
-        /// Encryption Key Salt format. This is used to derive the encryption key from the root key.
+        /// <see cref="KeySizeInBits"/> as a string, for use in the salt formats below.
         /// </summary>
-        private const string _encryptionKeySaltFormat = @"Microsoft SQL Server cell encryption key with encryption algorithm:{0} and key length:{1}";
+        private const string KeySizeInBitsString = "256";
 
         /// <summary>
-        /// MAC Key Salt format. This is used to derive the MAC key from the root key.
+        /// Encryption Key Salt. This is used to derive the encryption key from the root key.
         /// </summary>
-        private const string _macKeySaltFormat = @"Microsoft SQL Server cell MAC key with encryption algorithm:{0} and key length:{1}";
+        private const string EncryptionKeySaltString = $"Microsoft SQL Server cell encryption key with encryption algorithm:{SqlAeadAes256CbcHmac256Algorithm.AlgorithmName} and key length:{KeySizeInBitsString}";
 
         /// <summary>
-        /// IV Key Salt format. This is used to derive the IV key from the root key. This is only used for Deterministic encryption.
+        /// MAC Key Salt. This is used to derive the MAC key from the root key.
         /// </summary>
-        private const string _ivKeySaltFormat = @"Microsoft SQL Server cell IV key with encryption algorithm:{0} and key length:{1}";
+        private const string MacKeySaltString = $"Microsoft SQL Server cell MAC key with encryption algorithm:{SqlAeadAes256CbcHmac256Algorithm.AlgorithmName} and key length:{KeySizeInBitsString}";
+
+        /// <summary>
+        /// IV Key Salt. This is used to derive the IV key from the root key. This is only used for Deterministic encryption.
+        /// </summary>
+        private const string IvKeySaltString = $"Microsoft SQL Server cell IV key with encryption algorithm:{SqlAeadAes256CbcHmac256Algorithm.AlgorithmName} and key length:{KeySizeInBitsString}";
 
         /// <summary>
         /// Derives all the required keys from the given root key
@@ -57,23 +62,18 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
             // Derive keys from the root key
             //
             // Derive encryption key
-            string encryptionKeySalt = string.Format(_encryptionKeySaltFormat,
-                                                    SqlAeadAes256CbcHmac256Algorithm.AlgorithmName,
-                                                    KeySizeInBits);
             byte[] buff1 = new byte[KeySizeInBytes];
-            SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(encryptionKeySalt), RootKey, buff1);
+            SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(EncryptionKeySaltString), RootKey, buff1);
             EncryptionKey = buff1;
 
             // Derive mac key
-            string macKeySalt = string.Format(_macKeySaltFormat, SqlAeadAes256CbcHmac256Algorithm.AlgorithmName, KeySizeInBits);
             byte[] buff2 = new byte[KeySizeInBytes];
-            SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(macKeySalt), RootKey, buff2);
+            SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(MacKeySaltString), RootKey, buff2);
             MACKey = buff2;
 
             // Derive iv key
-            string ivKeySalt = string.Format(_ivKeySaltFormat, SqlAeadAes256CbcHmac256Algorithm.AlgorithmName, KeySizeInBits);
             byte[] buff3 = new byte[KeySizeInBytes];
-            SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(ivKeySalt), RootKey, buff3);
+            SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(IvKeySaltString), RootKey, buff3);
             IVKey = buff3;
         }
 
