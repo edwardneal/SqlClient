@@ -73,15 +73,15 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
             SqlSecurityUtility.GetHMACWithSHA256(EncryptionKeySalt, RootKey, buff1);
             EncryptionKey = buff1;
 
-            // Derive mac key
+            // Derive MAC key
             byte[] buff2 = new byte[KeySizeInBytes];
             SqlSecurityUtility.GetHMACWithSHA256(MacKeySalt, RootKey, buff2);
-            MACKey = buff2;
+            MacKey = buff2;
 
-            // Derive iv key
+            // Derive IV key
             byte[] buff3 = new byte[KeySizeInBytes];
             SqlSecurityUtility.GetHMACWithSHA256(IvKeySalt, RootKey, buff3);
-            IVKey = buff3;
+            IvKey = buff3;
         }
 
         /// <summary>
@@ -92,11 +92,11 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
         /// <summary>
         /// MAC key should be used to compute and validate HMAC
         /// </summary>
-        public byte[] MACKey { get; }
+        public byte[] MacKey { get; }
 
         /// <summary>
         /// IV key should be used to compute synthetic IV from a given plain text
         /// </summary>
-        public byte[] IVKey { get; }
+        public byte[] IvKey { get; }
     }
 }

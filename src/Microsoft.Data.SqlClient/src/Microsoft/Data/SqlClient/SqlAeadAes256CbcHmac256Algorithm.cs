@@ -164,7 +164,7 @@ namespace Microsoft.Data.SqlClient
             // Should be 1 single block (16 bytes)
             if (_isDeterministic)
             {
-                SqlSecurityUtility.GetHMACWithSHA256(plainText, _columnEncryptionKey.IVKey, iv);
+                SqlSecurityUtility.GetHMACWithSHA256(plainText, _columnEncryptionKey.IvKey, iv);
             }
             else
             {
@@ -236,7 +236,7 @@ namespace Microsoft.Data.SqlClient
 
                 if (hasAuthenticationTag)
                 {
-                    using (HMACSHA256 hmac = new HMACSHA256(_columnEncryptionKey.MACKey))
+                    using (HMACSHA256 hmac = new HMACSHA256(_columnEncryptionKey.MacKey))
                     {
                         Debug.Assert(hmac.CanTransformMultipleBlocks, "HMAC can't transform multiple blocks");
                         hmac.TransformBlock(_version, 0, _version.Length, _version, 0);
@@ -427,7 +427,7 @@ namespace Microsoft.Data.SqlClient
             //              cipherText.Length
             //              1 byte for version byte length
 
-            using (HMACSHA256 hmac = new HMACSHA256(_columnEncryptionKey.MACKey))
+            using (HMACSHA256 hmac = new HMACSHA256(_columnEncryptionKey.MacKey))
             {
                 int retVal = 0;
                 retVal = hmac.TransformBlock(_version, 0, _version.Length, _version, 0);
