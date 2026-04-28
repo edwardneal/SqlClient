@@ -36,21 +36,6 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
         private const string _ivKeySaltFormat = @"Microsoft SQL Server cell IV key with encryption algorithm:{0} and key length:{1}";
 
         /// <summary>
-        /// Encryption Key
-        /// </summary>
-        private readonly SymmetricKey _encryptionKey;
-
-        /// <summary>
-        /// MAC key
-        /// </summary>
-        private readonly SymmetricKey _macKey;
-
-        /// <summary>
-        /// IV Key
-        /// </summary>
-        private readonly SymmetricKey _ivKey;
-
-        /// <summary>
         /// Derives all the required keys from the given root key
         /// </summary>
         /// <param name="rootKey">Root key used to derive all the required derived keys</param>
@@ -74,43 +59,34 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
                                                     KeySize);
             byte[] buff1 = new byte[keySizeInBytes];
             SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(encryptionKeySalt), RootKey, buff1);
-            _encryptionKey = new SymmetricKey(buff1);
+            EncryptionKey = buff1;
 
             // Derive mac key
             string macKeySalt = string.Format(_macKeySaltFormat, SqlAeadAes256CbcHmac256Algorithm.AlgorithmName, KeySize);
             byte[] buff2 = new byte[keySizeInBytes];
             SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(macKeySalt), RootKey, buff2);
-            _macKey = new SymmetricKey(buff2);
+            MACKey = buff2;
 
             // Derive iv key
             string ivKeySalt = string.Format(_ivKeySaltFormat, SqlAeadAes256CbcHmac256Algorithm.AlgorithmName, KeySize);
             byte[] buff3 = new byte[keySizeInBytes];
             SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(ivKeySalt), RootKey, buff3);
-            _ivKey = new SymmetricKey(buff3);
+            IVKey = buff3;
         }
 
         /// <summary>
         /// Encryption key should be used for encryption and decryption
         /// </summary>
-        internal byte[] EncryptionKey
-        {
-            get { return _encryptionKey.RootKey; }
-        }
+        public byte[] EncryptionKey { get; }
 
         /// <summary>
         /// MAC key should be used to compute and validate HMAC
         /// </summary>
-        internal byte[] MACKey
-        {
-            get { return _macKey.RootKey; }
-        }
+        public byte[] MACKey { get; }
 
         /// <summary>
         /// IV key should be used to compute synthetic IV from a given plain text
         /// </summary>
-        internal byte[] IVKey
-        {
-            get { return _ivKey.RootKey; }
-        }
+        public byte[] IVKey { get; }
     }
 }
