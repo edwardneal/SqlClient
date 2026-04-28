@@ -4,6 +4,8 @@
 
 using System.Text;
 
+#nullable enable
+
 namespace Microsoft.Data.SqlClient.AlwaysEncrypted
 {
     /// <summary>
