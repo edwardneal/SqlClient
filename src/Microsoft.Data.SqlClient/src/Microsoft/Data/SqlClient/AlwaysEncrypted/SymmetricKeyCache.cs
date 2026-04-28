@@ -31,7 +31,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
         /// <summary>
         /// Retrieves Symmetric Key (in plaintext) given the encryption material.
         /// </summary>
-        public SqlClientSymmetricKey GetKey(SqlEncryptionKeyInfo keyInfo, SqlConnection connection, SqlCommand? command)
+        public SymmetricKey GetKey(SqlEncryptionKeyInfo keyInfo, SqlConnection connection, SqlCommand? command)
         {
             string serverName = connection.DataSource;
             Debug.Assert(serverName is not null, @"serverName should not be null.");
@@ -48,7 +48,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
             Debug.Assert(cacheLookupKey.Length <= capacity, "We needed to allocate a larger array");
 
             // Lookup the key in cache
-            if (!(_cache.TryGetValue(cacheLookupKey, out SqlClientSymmetricKey? encryptionKey))
+            if (!(_cache.TryGetValue(cacheLookupKey, out SymmetricKey? encryptionKey))
                 // A null cryptographic key is never added to the cache, but this null check satisfies the nullability warning.
                 || encryptionKey is null)
             {
@@ -92,7 +92,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
                             throw SQL.KeyDecryptionFailed(keyInfo.keyStoreName, keyHex, e);
                         }
 
-                        encryptionKey = new SqlClientSymmetricKey(plaintextKey);
+                        encryptionKey = new SymmetricKey(plaintextKey);
 
                         // If the cache TTL is zero, don't even bother inserting to the cache.
                         if (SqlConnection.ColumnEncryptionKeyCacheTtl != TimeSpan.Zero)

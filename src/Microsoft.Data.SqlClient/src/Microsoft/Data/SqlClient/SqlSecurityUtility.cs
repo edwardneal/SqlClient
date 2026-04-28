@@ -198,7 +198,7 @@ namespace Microsoft.Data.SqlClient
         {
             Debug.Assert(md is not null, "md should not be null in DecryptSymmetricKey.");
 
-            SqlClientSymmetricKey symKey = null;
+            SymmetricKey symKey = null;
             SqlEncryptionKeyInfo encryptionkeyInfoChosen = null;
 
             DecryptSymmetricKey(md.EncryptionInfo, out symKey, out encryptionkeyInfoChosen, connection, command);
@@ -217,7 +217,7 @@ namespace Microsoft.Data.SqlClient
         /// <summary>
         /// Decrypts the symmetric key and saves it in metadata.
         /// </summary>
-        internal static void DecryptSymmetricKey(SqlTceCipherInfoEntry sqlTceCipherInfoEntry, out SqlClientSymmetricKey sqlClientSymmetricKey, out SqlEncryptionKeyInfo encryptionkeyInfoChosen, SqlConnection connection, SqlCommand command)
+        internal static void DecryptSymmetricKey(SqlTceCipherInfoEntry sqlTceCipherInfoEntry, out SymmetricKey sqlClientSymmetricKey, out SqlEncryptionKeyInfo encryptionkeyInfoChosen, SqlConnection connection, SqlCommand command)
         {
             Debug.Assert(connection is not null, "Connection should not be null.");
             Debug.Assert(sqlTceCipherInfoEntry is not null, "sqlTceCipherInfoEntry should not be null in DecryptSymmetricKey.");
@@ -254,7 +254,7 @@ namespace Microsoft.Data.SqlClient
             Debug.Assert(encryptionkeyInfoChosen is not null, "encryptionkeyInfoChosen must have a value.");
         }
 
-        private static SqlClientSymmetricKey GetKeyFromLocalProviders(SqlEncryptionKeyInfo keyInfo, SqlConnection connection, SqlCommand command)
+        private static SymmetricKey GetKeyFromLocalProviders(SqlEncryptionKeyInfo keyInfo, SqlConnection connection, SqlCommand command)
         {
             string serverName = connection.DataSource;
             Debug.Assert(serverName is not null, @"serverName should not be null.");
@@ -283,7 +283,7 @@ namespace Microsoft.Data.SqlClient
                 throw SQL.KeyDecryptionFailed(keyInfo.keyStoreName, keyHex, e);
             }
 
-            return new SqlClientSymmetricKey(plaintextKey);
+            return new SymmetricKey(plaintextKey);
         }
 
         /// <summary>

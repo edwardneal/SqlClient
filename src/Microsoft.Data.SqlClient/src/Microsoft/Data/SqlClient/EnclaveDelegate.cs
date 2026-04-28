@@ -56,7 +56,7 @@ namespace Microsoft.Data.SqlClient
 
             foreach (SqlTceCipherInfoEntry cipherInfo in keysTobeSentToEnclave.Values)
             {
-                SqlSecurityUtility.DecryptSymmetricKey(cipherInfo, out SqlClientSymmetricKey sqlClientSymmetricKey, out SqlEncryptionKeyInfo encryptionkeyInfoChosen, connection, command);
+                SqlSecurityUtility.DecryptSymmetricKey(cipherInfo, out SymmetricKey sqlClientSymmetricKey, out SqlEncryptionKeyInfo encryptionkeyInfoChosen, connection, command);
 
                 if (sqlClientSymmetricKey == null)
                 {
@@ -151,7 +151,7 @@ namespace Microsoft.Data.SqlClient
 
             try
             {
-                SqlClientSymmetricKey symmetricKey = new SqlClientSymmetricKey(sessionKey);
+                SymmetricKey symmetricKey = new SymmetricKey(sessionKey);
                 SqlClientEncryptionAlgorithm sqlClientEncryptionAlgorithm = AeadAes256CbcHmac256Factory.Instance.Create(
                     symmetricKey,
                     SqlClientEncryptionType.Randomized,
