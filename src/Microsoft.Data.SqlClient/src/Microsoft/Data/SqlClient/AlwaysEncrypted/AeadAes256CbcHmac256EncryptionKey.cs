@@ -2,10 +2,9 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
-using Microsoft.Data.SqlClient.AlwaysEncrypted;
 using System.Text;
 
-namespace Microsoft.Data.SqlClient
+namespace Microsoft.Data.SqlClient.AlwaysEncrypted
 {
     /// <summary>
     /// Encryption key class containing 4 keys. This class is used by SqlAeadAes256CbcHmac256Algorithm
@@ -14,7 +13,7 @@ namespace Microsoft.Data.SqlClient
     /// 3) mac_key - A derived key that is used to compute HMAC of the cipher text
     /// 4) iv_key - A derived key that is used to generate a synthetic IV from plain text data.
     /// </summary>
-    internal class SqlAeadAes256CbcHmac256EncryptionKey : SymmetricKey
+    internal class AeadAes256CbcHmac256EncryptionKey : SymmetricKey
     {
         /// <summary>
         /// Key size in bits
@@ -61,7 +60,7 @@ namespace Microsoft.Data.SqlClient
         /// </summary>
         /// <param name="rootKey">Root key used to derive all the required derived keys</param>
         /// <param name="algorithmName"></param>
-        internal SqlAeadAes256CbcHmac256EncryptionKey(byte[] rootKey, string algorithmName) : base(rootKey)
+        internal AeadAes256CbcHmac256EncryptionKey(byte[] rootKey, string algorithmName) : base(rootKey)
         {
             _algorithmName = algorithmName;
 

@@ -22,7 +22,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
     internal sealed class AeadAes256CbcHmac256Factory : EncryptionAlgorithmFactory
     {
         /// <summary>
-        /// Factory classes cache the <see cref="SqlAeadAes256CbcHmac256EncryptionKey" /> objects to avoid recomputation of the derived keys.
+        /// Factory classes cache the <see cref="AeadAes256CbcHmac256EncryptionKey" /> objects to avoid recomputation of the derived keys.
         /// </summary>
         private readonly ConcurrentDictionary<string, SqlAeadAes256CbcHmac256Algorithm> _encryptionAlgorithms =
             new(concurrencyLevel: 4 * Environment.ProcessorCount /* default value in ConcurrentDictionary */, capacity: 2);
@@ -70,7 +70,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
 
             if (!_encryptionAlgorithms.TryGetValue(algorithmKey, out SqlAeadAes256CbcHmac256Algorithm? aesAlgorithm))
             {
-                SqlAeadAes256CbcHmac256EncryptionKey encryptedKey = new(encryptionKey.RootKey, SqlAeadAes256CbcHmac256Algorithm.AlgorithmName);
+                AeadAes256CbcHmac256EncryptionKey encryptedKey = new(encryptionKey.RootKey, SqlAeadAes256CbcHmac256Algorithm.AlgorithmName);
                 aesAlgorithm = new SqlAeadAes256CbcHmac256Algorithm(encryptedKey, encryptionType, SqlAeadAes256CbcHmac256Algorithm.CurrentVersion);
 
                 // In case multiple threads reach here at the same time, the first one adds the value
