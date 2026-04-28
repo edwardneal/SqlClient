@@ -70,7 +70,7 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
 
             if (!_encryptionAlgorithms.TryGetValue(algorithmKey, out SqlAeadAes256CbcHmac256Algorithm? aesAlgorithm))
             {
-                AeadAes256CbcHmac256EncryptionKey encryptedKey = new(encryptionKey.RootKey, SqlAeadAes256CbcHmac256Algorithm.AlgorithmName);
+                AeadAes256CbcHmac256EncryptionKey encryptedKey = new(encryptionKey.RootKey);
                 aesAlgorithm = new SqlAeadAes256CbcHmac256Algorithm(encryptedKey, encryptionType, SqlAeadAes256CbcHmac256Algorithm.CurrentVersion);
 
                 // In case multiple threads reach here at the same time, the first one adds the value

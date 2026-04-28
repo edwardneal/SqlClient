@@ -51,25 +51,17 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
         private readonly SymmetricKey _ivKey;
 
         /// <summary>
-        /// The name of the algorithm this key will be used with.
-        /// </summary>
-        private readonly string _algorithmName;
-
-        /// <summary>
         /// Derives all the required keys from the given root key
         /// </summary>
         /// <param name="rootKey">Root key used to derive all the required derived keys</param>
-        /// <param name="algorithmName"></param>
-        internal AeadAes256CbcHmac256EncryptionKey(byte[] rootKey, string algorithmName) : base(rootKey)
+        internal AeadAes256CbcHmac256EncryptionKey(byte[] rootKey) : base(rootKey)
         {
-            _algorithmName = algorithmName;
-
             int keySizeInBytes = KeySize / 8;
 
             // Key validation
             if (rootKey.Length != keySizeInBytes)
             {
-                throw SQL.InvalidKeySize(_algorithmName,
+                throw SQL.InvalidKeySize(SqlAeadAes256CbcHmac256Algorithm.AlgorithmName,
                                          rootKey.Length,
                                          keySizeInBytes);
             }
@@ -78,20 +70,20 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
             //
             // Derive encryption key
             string encryptionKeySalt = string.Format(_encryptionKeySaltFormat,
-                                                    _algorithmName,
+                                                    SqlAeadAes256CbcHmac256Algorithm.AlgorithmName,
                                                     KeySize);
             byte[] buff1 = new byte[keySizeInBytes];
             SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(encryptionKeySalt), RootKey, buff1);
             _encryptionKey = new SymmetricKey(buff1);
 
             // Derive mac key
-            string macKeySalt = string.Format(_macKeySaltFormat, _algorithmName, KeySize);
+            string macKeySalt = string.Format(_macKeySaltFormat, SqlAeadAes256CbcHmac256Algorithm.AlgorithmName, KeySize);
             byte[] buff2 = new byte[keySizeInBytes];
             SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(macKeySalt), RootKey, buff2);
             _macKey = new SymmetricKey(buff2);
 
             // Derive iv key
-            string ivKeySalt = string.Format(_ivKeySaltFormat, _algorithmName, KeySize);
+            string ivKeySalt = string.Format(_ivKeySaltFormat, SqlAeadAes256CbcHmac256Algorithm.AlgorithmName, KeySize);
             byte[] buff3 = new byte[keySizeInBytes];
             SqlSecurityUtility.GetHMACWithSHA256(Encoding.Unicode.GetBytes(ivKeySalt), RootKey, buff3);
             _ivKey = new SymmetricKey(buff3);
