@@ -2,6 +2,8 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
+#nullable enable
+
 namespace Microsoft.Data.SqlClient.AlwaysEncrypted
 {
     /// <summary>
@@ -11,35 +13,24 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
     internal class SymmetricKey
     {
         /// <summary>
-        /// The underlying key material
-        /// </summary>
-        protected readonly byte[] _rootKey;
-
-        /// <summary>
         /// Constructor that initializes the root key.
         /// </summary>
         /// <param name="rootKey">root key</param>
-        internal SymmetricKey(byte[] rootKey)
+        internal SymmetricKey(byte[]? rootKey)
         {
             // Key validation
-            if (rootKey == null || rootKey.Length == 0)
+            if (rootKey is null || rootKey.Length == 0)
             {
                 throw SQL.NullColumnEncryptionKeySysErr();
             }
 
-            _rootKey = rootKey;
+            RootKey = rootKey;
         }
 
         /// <summary>
         /// Returns a copy of the plain text key
         /// This is needed for actual encryption/decryption.
         /// </summary>
-        internal virtual byte[] RootKey
-        {
-            get
-            {
-                return _rootKey;
-            }
-        }
+        internal byte[] RootKey { get; }
     }
 }
