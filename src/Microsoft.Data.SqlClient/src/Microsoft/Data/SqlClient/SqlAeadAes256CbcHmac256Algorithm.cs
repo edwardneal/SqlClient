@@ -34,7 +34,7 @@ namespace Microsoft.Data.SqlClient
         /// <summary>
         /// Key size in bytes
         /// </summary>
-        private const int _KeySizeInBytes = AeadAes256CbcHmac256EncryptionKey.KeySize / 8;
+        private const int _KeySizeInBytes = AeadAes256CbcHmac256EncryptionKey.KeySizeInBits / 8;
 
         /// <summary>
         /// Block size in bytes. AES uses 16 byte blocks.
