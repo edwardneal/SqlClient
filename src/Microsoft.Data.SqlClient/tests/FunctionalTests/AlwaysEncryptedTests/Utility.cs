@@ -23,7 +23,7 @@ namespace Microsoft.Data.SqlClient.Tests.AlwaysEncryptedTests
         public static Type symmetricKey = systemData.GetType("Microsoft.Data.SqlClient.AlwaysEncrypted.SymmetricKey");
         public static Type aeadAes256CbcHmac256Factory = systemData.GetType("Microsoft.Data.SqlClient.AlwaysEncrypted.AeadAes256CbcHmac256Factory");
         public static PropertyInfo aeadAes256CbcHmac256FactoryInstance = aeadAes256CbcHmac256Factory.GetProperty("Instance", BindingFlags.Static | BindingFlags.Public);
-        public static ConstructorInfo sqlColumnEncryptionKeyConstructor = symmetricKey.GetConstructor(BindingFlags.NonPublic | BindingFlags.Instance, null, new Type[] { typeof(byte[]) }, null);
+        public static ConstructorInfo sqlColumnEncryptionKeyConstructor = symmetricKey.GetConstructor(BindingFlags.Public | BindingFlags.Instance, null, new Type[] { typeof(byte[]) }, null);
         public static MethodInfo aeadAes256CbcHmac256FactoryCreate = aeadAes256CbcHmac256Factory.GetMethod("Create", BindingFlags.Instance | BindingFlags.NonPublic);
         public static Type sqlClientEncryptionAlgorithm = systemData.GetType("Microsoft.Data.SqlClient.SqlClientEncryptionAlgorithm");
         public static MethodInfo sqlClientEncryptionAlgorithmEncryptData = sqlClientEncryptionAlgorithm.GetMethod("EncryptData", BindingFlags.Instance | BindingFlags.NonPublic);
