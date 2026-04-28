@@ -19,6 +19,8 @@ namespace Microsoft.Data.SqlClient
 
         static readonly ColumnMasterKeyMetadataSignatureVerificationCache ColumnMasterKeyMetadataSignatureVerificationCache = ColumnMasterKeyMetadataSignatureVerificationCache.Instance;
 
+        #nullable enable
+
         /// <summary>
         /// Computes a keyed hash of a given text and returns. It fills the buffer "hash" with computed hash value.
         /// </summary>
@@ -26,21 +28,45 @@ namespace Microsoft.Data.SqlClient
         /// <param name="key">key used for the HMAC</param>
         /// <param name="hash">Output buffer where the computed hash value is stored. If its less that 64 bytes, the hash is truncated</param>
         /// <returns>HMAC value</returns>
-        internal static void GetHMACWithSHA256(byte[] plainText, byte[] key, byte[] hash)
+        #if NET
+        public static void GetHMACWithSHA256(ReadOnlySpan<byte> plainText, ReadOnlySpan<byte> key, Span<byte> hash)
+        {
+            Debug.Assert(hash.Length != 0 && hash.Length <= HMACSHA256.HashSizeInBytes);
+
+            // We can't guarantee that the destination buffer will be large enough to hold the entire hash.
+            // If it is large enough though, we can write directly into it to avoid an extra copy.
+            if (hash.Length == HMACSHA256.HashSizeInBytes)
+            {
+                bool writtenHash = HMACSHA256.TryHashData(key, plainText, hash, out _);
+
+                Debug.Assert(writtenHash);
+            }
+            else
+            {
+                Span<byte> hashBuffer = stackalloc byte[HMACSHA256.HashSizeInBytes];
+                bool writtenHash = HMACSHA256.TryHashData(key, plainText, hashBuffer, out _);
+
+                Debug.Assert(writtenHash);
+                hashBuffer.Slice(0, hash.Length).CopyTo(hash);
+            }
+        }
+        #else
+        public static void GetHMACWithSHA256(byte[] plainText, byte[] key, byte[] hash)
         {
             const int MaxSHA256HashBytes = 32;
 
             Debug.Assert(key != null && plainText != null);
             Debug.Assert(hash.Length != 0 && hash.Length <= MaxSHA256HashBytes);
 
-            using (HMACSHA256 hmac = new HMACSHA256(key))
-            {
-                byte[] computedHash = hmac.ComputeHash(plainText);
+            using HMACSHA256 hmac = new(key);
+            byte[] computedHash = hmac.ComputeHash(plainText);
 
-                // Truncate the hash if needed
-                Buffer.BlockCopy(computedHash, 0, hash, 0, hash.Length);
-            }
+            // Truncate the hash if needed
+            Buffer.BlockCopy(computedHash, 0, hash, 0, hash.Length);
         }
+        #endif
+
+        #nullable restore
 
         /// <summary>
         /// Generates cryptographically random bytes
