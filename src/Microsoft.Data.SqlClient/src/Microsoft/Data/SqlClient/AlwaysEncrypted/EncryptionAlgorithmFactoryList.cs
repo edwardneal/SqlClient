@@ -32,6 +32,6 @@ internal static class EncryptionAlgorithmFactoryList
             _ => throw SQL.UnknownColumnEncryptionAlgorithm(algorithmName, RegisteredCipherAlgorithmNames)
         };
 
-        encryptionAlgorithm = factory.Create(key, (SqlClientEncryptionType)type, algorithmName);
+        encryptionAlgorithm = factory.Create(key, (EncryptionType)type, algorithmName);
     }
 }

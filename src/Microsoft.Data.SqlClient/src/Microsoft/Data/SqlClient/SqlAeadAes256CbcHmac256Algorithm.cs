@@ -106,7 +106,7 @@ namespace Microsoft.Data.SqlClient
         /// <param name="algorithmVersion">
         /// Algorithm version
         /// </param>
-        internal SqlAeadAes256CbcHmac256Algorithm(AeadAes256CbcHmac256EncryptionKey encryptionKey, SqlClientEncryptionType encryptionType, byte algorithmVersion)
+        internal SqlAeadAes256CbcHmac256Algorithm(AeadAes256CbcHmac256EncryptionKey encryptionKey, EncryptionType encryptionType, byte algorithmVersion)
         {
             _columnEncryptionKey = encryptionKey;
             _algorithmVersion = algorithmVersion;
@@ -117,13 +117,13 @@ namespace Microsoft.Data.SqlClient
 
             // Validate encryption type for this algorithm
             // This algorithm can only provide randomized or deterministic encryption types.
-            if (encryptionType == SqlClientEncryptionType.Deterministic)
+            if (encryptionType == EncryptionType.Deterministic)
             {
                 _isDeterministic = true;
             }
             else
             {
-                Debug.Assert(SqlClientEncryptionType.Randomized == encryptionType, "Invalid Encryption Type detected in SqlAeadAes256CbcHmac256Algorithm, this should've been caught in factory class");
+                Debug.Assert(EncryptionType.Randomized == encryptionType, "Invalid Encryption Type detected in SqlAeadAes256CbcHmac256Algorithm, this should've been caught in factory class");
             }
 
             _cryptoProviderPool = new ConcurrentQueue<Aes>();

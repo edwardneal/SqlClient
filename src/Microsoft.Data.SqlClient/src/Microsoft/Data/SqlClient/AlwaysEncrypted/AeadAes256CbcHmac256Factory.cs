@@ -41,18 +41,18 @@ namespace Microsoft.Data.SqlClient.AlwaysEncrypted
         /// <param name="encryptionType">Encryption type. Expected values are either Deterministic or Randomized.</param>
         /// <param name="encryptionAlgorithm">Cryptographic algorithm.</param>
         /// <returns>An implementation of the AEAD_AES_256_CBC_HMAC_SHA256 cryptographic algorithm.</returns>
-        internal override SqlClientEncryptionAlgorithm Create(SymmetricKey encryptionKey, SqlClientEncryptionType encryptionType, string encryptionAlgorithm)
+        internal override SqlClientEncryptionAlgorithm Create(SymmetricKey encryptionKey, EncryptionType encryptionType, string encryptionAlgorithm)
         {
             // Callers should have validated the encryption algorithm and the encryption key
             Debug.Assert(string.Equals(encryptionAlgorithm, SqlAeadAes256CbcHmac256Algorithm.AlgorithmName, StringComparison.OrdinalIgnoreCase));
 
             // Validate encryption type
-            if (encryptionType is not SqlClientEncryptionType.Deterministic and not SqlClientEncryptionType.Randomized)
+            if (encryptionType is not EncryptionType.Deterministic and not EncryptionType.Randomized)
             {
                 throw SQL.InvalidEncryptionType(SqlAeadAes256CbcHmac256Algorithm.AlgorithmName,
                                                 encryptionType,
-                                                SqlClientEncryptionType.Deterministic,
-                                                SqlClientEncryptionType.Randomized);
+                                                EncryptionType.Deterministic,
+                                                EncryptionType.Randomized);
             }
 
             // Get the cached cryptographic algorithm if one exists or create a new one, add it to cache and use it
