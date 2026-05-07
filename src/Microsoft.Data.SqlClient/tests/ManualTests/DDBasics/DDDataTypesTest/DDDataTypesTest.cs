@@ -6,6 +6,7 @@ using System;
 using System.Data;
 using System.Data.SqlTypes;
 using System.Xml;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTesting.Tests
@@ -17,27 +18,19 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
         public static void XmlTest()
         {
-            string tempTable = "xml_" + Guid.NewGuid().ToString().Replace('-', '_');
-            string initStr = "create table " + tempTable + " (xml_col XML)";
-            string insertNormStr = "INSERT " + tempTable + " VALUES('<doc>Hello World</doc>')";
-            string insertParamStr = "INSERT " + tempTable + " VALUES(@x)";
-            string queryStr = "select * from " + tempTable;
-
             using (SqlConnection conn = new SqlConnection(DataTestUtility.TCPConnectionString))
             {
-                conn.Open();
+                using Table xmlTable = new(conn, nameof(XmlTest), "(xml_col XML)");
+                string insertNormStr = $"INSERT {xmlTable.Name} VALUES('<doc>Hello World</doc>')";
+                string insertParamStr = $"INSERT {xmlTable.Name} VALUES(@x)";
+                string queryStr = $"select * from {xmlTable.Name}";
 
-                SqlCommand cmd = conn.CreateCommand();
-
-                cmd.CommandText = initStr;
-                cmd.ExecuteNonQuery();
-
-                try
+                using (SqlCommand cmd = conn.CreateCommand())
                 {
                     cmd.CommandText = insertNormStr;
                     cmd.ExecuteNonQuery();
 
-                    SqlCommand cmd2 = new SqlCommand(insertParamStr, conn);
+                    using SqlCommand cmd2 = new SqlCommand(insertParamStr, conn);
 
                     cmd2.Parameters.Add("@x", SqlDbType.Xml);
                     XmlReader xr = XmlReader.Create("DDDataTypesTest_Data.xml");
@@ -67,11 +60,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                         }
                     }
                 }
-                finally
-                {
-                    cmd.CommandText = "drop table " + tempTable;
-                    cmd.ExecuteNonQuery();
-                }
             }
         }
 
@@ -79,31 +67,21 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
         public static void MaxTypesTest()
         {
-            string tempTable = "max_" + Guid.NewGuid().ToString().Replace('-', '_');
-            string initStr = "create table " + tempTable + " (col1 varchar(max), col2 nvarchar(max), col3 varbinary(max))";
-
-            string insertNormStr = "INSERT " + tempTable + " VALUES('ASCIASCIASCIASCIASCIASCIThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first row', ";
-            insertNormStr += "N'This is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first row', ";
-            insertNormStr += "0x010100110011000111000111000011110000111100001111000001111100000111110000011111000001111100000111110000011111000001111100000111110000011111)";
-
-            string insertParamStr = "INSERT " + tempTable + " VALUES(@x, @y, @z)";
-            string queryStr = "select * from " + tempTable;
-
             using (SqlConnection conn = new SqlConnection(DataTestUtility.TCPConnectionString))
             {
-                conn.Open();
-
-                SqlCommand cmd = conn.CreateCommand();
-
-                cmd.CommandText = initStr;
-                cmd.ExecuteNonQuery();
-
-                try
+                using Table xmlTable = new(conn, nameof(MaxTypesTest), "(col1 varchar(max), col2 nvarchar(max), col3 varbinary(max))");
+                using (SqlCommand cmd = conn.CreateCommand())
                 {
+                    string insertNormStr = $"INSERT {xmlTable.Name} VALUES('ASCIASCIASCIASCIASCIASCIThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first row', ";
+                    insertNormStr += "N'This is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first rowThis is the first row', ";
+                    insertNormStr += "0x010100110011000111000111000011110000111100001111000001111100000111110000011111000001111100000111110000011111000001111100000111110000011111)";
+                    string insertParamStr = $"INSERT {xmlTable.Name} VALUES(@x, @y, @z)";
+                    string queryStr = $"select * from {xmlTable.Name}";
+
                     cmd.CommandText = insertNormStr;
                     cmd.ExecuteNonQuery();
 
-                    SqlCommand cmd2 = new SqlCommand(insertParamStr, conn);
+                    using SqlCommand cmd2 = new SqlCommand(insertParamStr, conn);
 
                     cmd2.Parameters.Add("@x", SqlDbType.VarChar);
                     cmd2.Parameters.Add("@y", SqlDbType.NVarChar);
@@ -182,11 +160,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                             currentValue++;
                         }
                     }
-                }
-                finally
-                {
-                    cmd.CommandText = "drop table " + tempTable;
-                    cmd.ExecuteNonQuery();
                 }
             }
         }
