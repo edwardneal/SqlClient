@@ -9,6 +9,7 @@ using System.Data.SqlTypes;
 using System.Globalization;
 using System.Threading;
 using Microsoft.Data.SqlClient.Server;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTesting.Tests
@@ -121,26 +122,19 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         public void SqlType_BulkCopyFromReader_RoundTripsCorrectly(object paramValue, string expectedTypeName, string expectedBaseTypeName)
         {
             // Arrange
-            string tableName = DataTestUtility.GetLongName("bulkDest");
-
             using var conn = new SqlConnection(_connStr);
-            conn.Open();
-            using (var createCmd = new SqlCommand($"CREATE TABLE dbo.{tableName} (f1 sql_variant)", conn))
-            {
-                createCmd.ExecuteNonQuery();
-            }
 
-            try
+            using (Table destTable = new(conn, "bulkDest", "(f1 sql_variant)"))
             {
                 // Act
                 using (var dr = GetReaderForVariant(paramValue))
                 {
-                    using var bulkCopy = new SqlBulkCopy(conn) { BulkCopyTimeout = 60, BatchSize = 1, DestinationTableName = $"dbo.{tableName}" };
+                    using var bulkCopy = new SqlBulkCopy(conn) { BulkCopyTimeout = 60, BatchSize = 1, DestinationTableName = destTable.Name };
                     bulkCopy.WriteToServer(dr);
                 }
 
                 // Assert
-                using (var verifyCmd = new SqlCommand($"SELECT f1, sql_variant_property(f1,'BaseType') AS BaseType FROM dbo.{tableName}", conn))
+                using (var verifyCmd = new SqlCommand($"SELECT f1, sql_variant_property(f1,'BaseType') AS BaseType FROM {destTable.Name}", conn))
                 using (var dr = verifyCmd.ExecuteReader())
                 {
                     Assert.True(dr.Read(), "Expected a row from bulk copy query");
@@ -150,11 +144,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                     Assert.Equal(expectedTypeName, actualTypeName);
                     Assert.Equal(expectedBaseTypeName, actualBaseTypeName);
                 }
-            }
-            finally
-            {
-                using var dropCmd = new SqlCommand($"DROP TABLE IF EXISTS dbo.{tableName}", conn);
-                dropCmd.ExecuteNonQuery();
             }
         }
 
@@ -166,29 +155,22 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         public void SqlType_BulkCopyFromDataTable_RoundTripsCorrectly(object paramValue, string expectedTypeName, string expectedBaseTypeName)
         {
             // Arrange
-            string tableName = DataTestUtility.GetLongName("bulkDest");
-
             using var conn = new SqlConnection(_connStr);
-            conn.Open();
-            using (var createCmd = new SqlCommand($"CREATE TABLE dbo.{tableName} (f1 sql_variant)", conn))
-            {
-                createCmd.ExecuteNonQuery();
-            }
 
-            try
+            using (Table destTable = new(conn, "bulkDest", "(f1 sql_variant)"))
             {
                 var table = new DataTable();
                 table.Columns.Add("f1", typeof(object));
                 table.Rows.Add(new object[] { paramValue });
 
                 // Act
-                using (var bulkCopy = new SqlBulkCopy(conn) { BulkCopyTimeout = 60, BatchSize = 1, DestinationTableName = $"dbo.{tableName}" })
+                using (var bulkCopy = new SqlBulkCopy(conn) { BulkCopyTimeout = 60, BatchSize = 1, DestinationTableName = destTable.Name })
                 {
                     bulkCopy.WriteToServer(table, DataRowState.Added);
                 }
 
                 // Assert
-                using (var verifyCmd = new SqlCommand($"SELECT f1, sql_variant_property(f1,'BaseType') AS BaseType FROM dbo.{tableName}", conn))
+                using (var verifyCmd = new SqlCommand($"SELECT f1, sql_variant_property(f1,'BaseType') AS BaseType FROM {destTable.Name}", conn))
                 using (var dr = verifyCmd.ExecuteReader())
                 {
                     Assert.True(dr.Read(), "Expected a row from bulk copy query");
@@ -198,11 +180,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                     Assert.Equal(expectedTypeName, actualTypeName);
                     Assert.Equal(expectedBaseTypeName, actualBaseTypeName);
                 }
-            }
-            finally
-            {
-                using var dropCmd = new SqlCommand($"DROP TABLE IF EXISTS dbo.{tableName}", conn);
-                dropCmd.ExecuteNonQuery();
             }
         }
 
@@ -215,16 +192,9 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         public void SqlType_BulkCopyFromDataRow_RoundTripsCorrectly(object paramValue, string expectedTypeName, string expectedBaseTypeName)
         {
             // Arrange
-            string tableName = DataTestUtility.GetLongName("bulkDest");
-
             using var conn = new SqlConnection(_connStr);
-            conn.Open();
-            using (var createCmd = new SqlCommand($"CREATE TABLE dbo.{tableName} (f1 sql_variant)", conn))
-            {
-                createCmd.ExecuteNonQuery();
-            }
 
-            try
+            using (Table destTable = new(conn, "bulkDest", "(f1 sql_variant)"))
             {
                 var table = new DataTable();
                 table.Columns.Add("f1", typeof(object));
@@ -232,13 +202,13 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                 DataRow[] rows = table.Select();
 
                 // Act
-                using (var bulkCopy = new SqlBulkCopy(conn) { BulkCopyTimeout = 60, BatchSize = 1, DestinationTableName = $"dbo.{tableName}" })
+                using (var bulkCopy = new SqlBulkCopy(conn) { BulkCopyTimeout = 60, BatchSize = 1, DestinationTableName = destTable.Name })
                 {
                     bulkCopy.WriteToServer(rows);
                 }
 
                 // Assert
-                using (var verifyCmd = new SqlCommand($"SELECT f1, sql_variant_property(f1,'BaseType') AS BaseType FROM dbo.{tableName}", conn))
+                using (var verifyCmd = new SqlCommand($"SELECT f1, sql_variant_property(f1,'BaseType') AS BaseType FROM {destTable.Name}", conn))
                 using (var dr = verifyCmd.ExecuteReader())
                 {
                     Assert.True(dr.Read(), "Expected a row from bulk copy query");
@@ -248,11 +218,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                     Assert.Equal(expectedTypeName, actualTypeName);
                     Assert.Equal(expectedBaseTypeName, actualBaseTypeName);
                 }
-            }
-            finally
-            {
-                using var dropCmd = new SqlCommand($"DROP TABLE IF EXISTS dbo.{tableName}", conn);
-                dropCmd.ExecuteNonQuery();
             }
         }
 
@@ -265,16 +230,9 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         public void SqlType_TvpFromSqlMetaData_RoundTripsCorrectly(object paramValue, string expectedTypeName, string expectedBaseTypeName)
         {
             // Arrange
-            string tvpTypeName = DataTestUtility.GetLongName("tvpVariant");
-
             using var conn = new SqlConnection(_connStr);
-            conn.Open();
-            using (var createCmd = new SqlCommand($"CREATE TYPE dbo.{tvpTypeName} AS TABLE (f1 sql_variant)", conn))
-            {
-                createCmd.ExecuteNonQuery();
-            }
 
-            try
+            using (UserDefinedType variantUdt = new(conn, "tvpVariant", "TABLE (f1 sql_variant)"))
             {
                 var metadata = new SqlMetaData[] { new SqlMetaData("f1", SqlDbType.Variant) };
                 var record = new SqlDataRecord(metadata);
@@ -284,7 +242,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                 cmd.CommandText = "SELECT f1, sql_variant_property(f1,'BaseType') AS BaseType FROM @tvpParam";
                 var p = cmd.Parameters.AddWithValue("@tvpParam", new[] { record });
                 p.SqlDbType = SqlDbType.Structured;
-                p.TypeName = $"dbo.{tvpTypeName}";
+                p.TypeName = variantUdt.Name;
 
                 // Act
                 using var dr = cmd.ExecuteReader();
@@ -295,11 +253,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                 // Assert
                 Assert.Equal(expectedTypeName, actualTypeName);
                 Assert.Equal(expectedBaseTypeName, actualBaseTypeName);
-            }
-            finally
-            {
-                using var dropCmd = new SqlCommand($"DROP TYPE IF EXISTS dbo.{tvpTypeName}", conn);
-                dropCmd.ExecuteNonQuery();
             }
         }
 
@@ -312,23 +265,16 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         public void SqlType_TvpFromSqlDataReader_RoundTripsCorrectly(object paramValue, string expectedTypeName, string expectedBaseTypeName)
         {
             // Arrange
-            string tvpTypeName = DataTestUtility.GetLongName("tvpVariant");
-
             using var conn = new SqlConnection(_connStr);
-            conn.Open();
-            using (var createCmd = new SqlCommand($"CREATE TYPE dbo.{tvpTypeName} AS TABLE (f1 sql_variant)", conn))
-            {
-                createCmd.ExecuteNonQuery();
-            }
 
-            try
+            using (UserDefinedType variantUdt = new(conn, "tvpVariant", "TABLE (f1 sql_variant)"))
             {
                 using var drSource = GetReaderForVariant(paramValue);
                 using var cmd = conn.CreateCommand();
                 cmd.CommandText = "SELECT f1, sql_variant_property(f1,'BaseType') AS BaseType FROM @tvpParam";
                 var p = cmd.Parameters.AddWithValue("@tvpParam", drSource);
                 p.SqlDbType = SqlDbType.Structured;
-                p.TypeName = $"dbo.{tvpTypeName}";
+                p.TypeName = variantUdt.Name;
 
                 // Act
                 using var dr = cmd.ExecuteReader();
@@ -339,11 +285,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                 // Assert
                 Assert.Equal(expectedTypeName, actualTypeName);
                 Assert.Equal(expectedBaseTypeName, actualBaseTypeName);
-            }
-            finally
-            {
-                using var dropCmd = new SqlCommand($"DROP TYPE IF EXISTS dbo.{tvpTypeName}", conn);
-                dropCmd.ExecuteNonQuery();
             }
         }
 
