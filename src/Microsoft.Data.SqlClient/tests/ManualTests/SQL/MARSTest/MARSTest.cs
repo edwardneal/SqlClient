@@ -8,6 +8,7 @@ using System.Data;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTesting.Tests
@@ -648,23 +649,8 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
         public static void MarsConcurrencyTest()
         {
-            var table = DataTestUtility.GenerateObjectName();
-            using (var conn = new SqlConnection(DataTestUtility.TCPConnectionString))
-            {
-                conn.Open();
-                using var cmd = new SqlCommand
-                {
-                    Connection = conn,
-                    CommandText = @$"
-                        DROP TABLE IF EXISTS [{table}];
-                        CREATE TABLE [{table}] (
-                            [Id] INTEGER,
-                            [IsDeleted] BIT
-                        )"
-                };
-
-                cmd.ExecuteNonQuery();
-            }
+            using SqlConnection tableSetupConn = new(DataTestUtility.TCPConnectionString);
+            using Table table = new(tableSetupConn, nameof(MarsConcurrencyTest), "([Id] INTEGER, [IsDeleted] BIT)");
 
             var connString = new SqlConnectionStringBuilder(DataTestUtility.TCPConnectionString) { MultipleActiveResultSets = true }.ConnectionString;
             using (var conn = new SqlConnection(connString))
@@ -683,7 +669,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                                     Connection = conn,
                                     CommandText = @$"
                                 SELECT [l].[Id], [l].[IsDeleted]
-                                FROM [{table}] AS [l]
+                                FROM {table.Name} AS [l]
                                 WHERE ([l].[IsDeleted] = CAST(0 AS bit)) AND [l].[Id] IN (1, 2, 3)"
                                 };
 
@@ -693,13 +679,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                 }
                 catch (Exception e)
                 {
-                    Assert.Fail("CRITIAL: Test should not fail randomly. Exception occurred: " + e.Message);
-                }
-                finally
-                {
-                    using var dropConn = new SqlConnection(DataTestUtility.TCPConnectionString);
-                    dropConn.Open();
-                    DataTestUtility.DropTable(dropConn, table);
+                    Assert.Fail("CRITICAL: Test should not fail randomly. Exception occurred: " + e.Message);
                 }
             }
         }
