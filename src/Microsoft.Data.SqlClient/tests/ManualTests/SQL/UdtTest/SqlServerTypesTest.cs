@@ -11,6 +11,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Microsoft.SqlServer.Types;
 using Xunit;
 
@@ -388,21 +389,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         #endif
         public static void TestSqlServerTypesInsertAndRead()
         {
-            string tableName = DataTestUtility.GetLongName("Type");
-            string allTypesSQL = @$"
-                    if not exists (select * from sysobjects where name='{tableName}' and xtype='U')
-                    Begin
-                    create table {tableName}
-                    (
-                        id int identity not null,
-                        c1 hierarchyid not null,
-                        c2 uniqueidentifier not null,
-                        c3 geography not null,
-                        c4 geometry not null,
-                    );
-                    End
-                    ";
-
             Dictionary<string, object> rowValues = new();
             rowValues["c1"] = SqlHierarchyId.Parse(new SqlString("/1/1/3/"));
             rowValues["c2"] = Guid.NewGuid();
@@ -410,15 +396,16 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
             rowValues["c4"] = SqlGeometry.Point(5.2, 1.1, 4120);
 
             using SqlConnection conn = new(DataTestUtility.TCPConnectionString);
-            conn.Open();
-            try
+            using (Table typeTable = new(conn, "Type", @"
+                (
+                    id int identity not null,
+                    c1 hierarchyid not null,
+                    c2 uniqueidentifier not null,
+                    c3 geography not null,
+                    c4 geometry not null,
+                )"))
             {
                 using SqlCommand cmd1 = conn.CreateCommand();
-
-                // Create db and table
-                cmd1.CommandText = allTypesSQL.ToString();
-                cmd1.ExecuteNonQuery();
-
                 using SqlCommand cmd2 = conn.CreateCommand();
 
                 StringBuilder columnsSql = new();
@@ -446,13 +433,13 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                 columnsSql.Length--;
                 valuesSql.Length--;
 
-                string insertSql = string.Format(CultureInfo.InvariantCulture, $"insert {tableName}" + @" ({0}) values({1})",
+                string insertSql = string.Format(CultureInfo.InvariantCulture, $"insert {typeTable.Name}" + @" ({0}) values({1})",
                     columnsSql.ToString(), valuesSql.ToString());
 
                 cmd2.CommandText = insertSql;
                 cmd2.ExecuteNonQuery();
 
-                cmd1.CommandText = @$"select * from dbo.{tableName}";
+                cmd1.CommandText = @$"select * from dbo.{typeTable.Name}";
                 using SqlDataReader r = cmd1.ExecuteReader();
                 while (r.Read())
                 {
@@ -466,10 +453,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                     Assert.Equal(rowValues["c3"].ToString(), r.GetValue(3).ToString());
                     Assert.Equal(rowValues["c4"].ToString(), r.GetValue(4).ToString());
                 }
-            }
-            finally
-            {
-                DataTestUtility.DropTable(conn, tableName);
             }
         }
     }
