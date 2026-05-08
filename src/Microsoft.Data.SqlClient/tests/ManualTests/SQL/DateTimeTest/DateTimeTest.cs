@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -6,6 +6,7 @@ using System;
 using System.Data;
 using System.Data.Common;
 using System.Data.SqlTypes;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTesting.Tests
@@ -528,36 +529,32 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
         public static void ReaderParameterTest_DateOnly_TimeOnly()
         {
-            string tableName = "#t_" + Guid.NewGuid().ToString().Replace('-', '_');
-            string procName = "#p_" + Guid.NewGuid().ToString().Replace('-', '_');
-            string procNullName = "#pn_" + Guid.NewGuid().ToString().Replace('-', '_');
-
-            string tempTableCreate = "CREATE TABLE " + tableName + " (ci int, c1 date, c2 time(7) )";
-            string tempTableInsert1 = "INSERT INTO " + tableName + " VALUES (0, " +
-                "'1753-01-01', " +
-                "'20:12:13.36')";
-            string tempTableInsert2 = "INSERT INTO " + tableName + " VALUES (@pi, @p1, @p2)";
-
-            string createProc = "CREATE PROCEDURE " + procName + " @p1 date OUTPUT, @p2 time(7) OUTPUT";
-            createProc += " AS ";
-            createProc += " SET @p1 = '1753-01-01'";
-            createProc += " SET @p2 = '20:12:13.36'";
-
-            string createProcN = "CREATE PROCEDURE " + procNullName + " @p1 date OUTPUT, @p2 time(7) OUTPUT";
-            createProcN += " AS ";
-            createProcN += " SET @p1 = NULL";
-            createProcN += " SET @p2 = NULL";
-
             using (SqlConnection conn = new SqlConnection(DataTestUtility.TCPConnectionString))
             {
-                try
+                using (Table dtTable = new(conn, $"#t_{nameof(ReaderParameterTest_DateOnly_TimeOnly)}", "(ci int, c1 date, c2 time(7) )"))
+                using (StoredProcedure spNonNullOutput = new(conn, $"#p_{nameof(ReaderParameterTest_DateOnly_TimeOnly)}",
+                    "@p1 date OUTPUT, @p2 time(7) OUTPUT" +
+                    " AS" +
+                    " SET @p1 = '1753-01-01'" +
+                    " SET @p2 = '20:12:13.36'"))
+                using (StoredProcedure spNullOutput = new(conn, $"#pn_{nameof(ReaderParameterTest_DateOnly_TimeOnly)}",
+                    "@p1 date OUTPUT, @p2 time(7) OUTPUT" +
+                    " AS" +
+                    " SET @p1 = NULL" +
+                    " SET @p2 = NULL"))
                 {
+                    string tableName = dtTable.Name;
+                    string procName = spNonNullOutput.Name;
+                    string procNullName = spNullOutput.Name;
+
+                    string tempTableInsert1 = "INSERT INTO " + tableName + " VALUES (0, " +
+                        "'1753-01-01', " +
+                        "'20:12:13.36')";
+                    string tempTableInsert2 = "INSERT INTO " + tableName + " VALUES (@pi, @p1, @p2)";
+
                     // ReaderParameterTest Setup
-                    conn.Open();
                     using (SqlCommand cmd = conn.CreateCommand())
                     {
-                        cmd.CommandText = tempTableCreate;
-                        cmd.ExecuteNonQuery();
                         cmd.CommandText = tempTableInsert1;
                         cmd.ExecuteNonQuery();
 
@@ -601,10 +598,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
 
                             // Test 3
 
-                            cmd.CommandText = createProc;
-                            cmd.ExecuteNonQuery();
-                            cmd.CommandText = createProcN;
-                            cmd.ExecuteNonQuery();
                             using (SqlCommand cmd3 = conn.CreateCommand())
                             {
                                 cmd3.CommandType = CommandType.StoredProcedure;
@@ -748,18 +741,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                         }
                         #endregion
 
-                    }
-                }
-                finally
-                {
-                    using (SqlCommand cmd = conn.CreateCommand())
-                    {
-                        cmd.CommandText = "DROP TABLE " + tableName;
-                        cmd.ExecuteNonQuery();
-                        cmd.CommandText = "DROP PROCEDURE " + procName;
-                        cmd.ExecuteNonQuery();
-                        cmd.CommandText = "DROP PROCEDURE " + procNullName;
-                        cmd.ExecuteNonQuery();
                     }
                 }
             }
