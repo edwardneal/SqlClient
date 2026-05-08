@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -6,6 +6,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Data;
 using Microsoft.Data.SqlClient.DataClassification;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTesting.Tests
@@ -13,58 +14,52 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
     [Trait("Set", "2")]
     public static class DataClassificationTest
     {
-        private static string s_tableName;
+        private const string DataClassificationTableDefinition = " ("
+                + "[Id] [int] IDENTITY(1,1) NOT NULL,"
+                + "[CompanyName] [nvarchar](40) NOT NULL,"
+                + "[ContactName] [nvarchar](50) NULL,"
+                + "[ContactTitle] [nvarchar](40) NULL,"
+                + "[City] [nvarchar](40) NULL,"
+                + "[CountryName] [nvarchar](40) NULL,"
+                + "[Phone] [nvarchar](30) MASKED WITH (FUNCTION = 'default()') NULL,"
+                + "[Fax] [nvarchar](30) MASKED WITH (FUNCTION = 'default()') NULL)";
 
         // Synapse: Azure Synapse does not support RANK
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse), nameof(DataTestUtility.IsDataClassificationSupported))]
         public static void TestDataClassificationResultSetRank()
         {
-            s_tableName = DataTestUtility.GetLongName("DC");
             using (SqlConnection sqlConnection = new SqlConnection(DataTestUtility.TCPConnectionString))
             using (SqlCommand sqlCommand = sqlConnection.CreateCommand())
             {
-                try
-                {
-                    sqlConnection.Open();
-                    Assert.True(DataTestUtility.IsDataClassificationSupported);
-                    CreateTable(sqlCommand);
-                    AddSensitivity(sqlCommand, rankEnabled: true);
-                    InsertData(sqlCommand);
-                    RunTestsForServer(sqlCommand, rankEnabled: true);
-                }
-                finally
-                {
-                    DataTestUtility.DropTable(sqlConnection, s_tableName);
-                }
+                Assert.True(DataTestUtility.IsDataClassificationSupported);
+
+                using Table classifiedTable = new(sqlConnection, "DC", DataClassificationTableDefinition);
+                
+                AddSensitivity(sqlCommand, classifiedTable, rankEnabled: true);
+                InsertData(sqlCommand, classifiedTable);
+                RunTestsForServer(sqlCommand, classifiedTable, rankEnabled: true);
             }
         }
 
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.IsDataClassificationSupported))]
         public static void TestDataClassificationResultSet()
         {
-            s_tableName = DataTestUtility.GetLongName("DC");
             using (SqlConnection sqlConnection = new SqlConnection(DataTestUtility.TCPConnectionString))
             using (SqlCommand sqlCommand = sqlConnection.CreateCommand())
             {
-                try
-                {
-                    sqlConnection.Open();
-                    Assert.True(DataTestUtility.IsDataClassificationSupported);
-                    CreateTable(sqlCommand);
-                    AddSensitivity(sqlCommand);
-                    InsertData(sqlCommand);
-                    RunTestsForServer(sqlCommand);
-                }
-                finally
-                {
-                    DataTestUtility.DropTable(sqlConnection, s_tableName);
-                }
+                Assert.True(DataTestUtility.IsDataClassificationSupported);
+
+                using Table classifiedTable = new(sqlConnection, "DC", DataClassificationTableDefinition);
+
+                AddSensitivity(sqlCommand, classifiedTable);
+                InsertData(sqlCommand, classifiedTable);
+                RunTestsForServer(sqlCommand, classifiedTable);
             }
         }
 
-        private static void RunTestsForServer(SqlCommand sqlCommand, bool rankEnabled = false)
+        private static void RunTestsForServer(SqlCommand sqlCommand, Table classifiedTable, bool rankEnabled = false)
         {
-            sqlCommand.CommandText = "SELECT * FROM " + s_tableName;
+            sqlCommand.CommandText = "SELECT * FROM " + classifiedTable.Name;
             using (SqlDataReader reader = sqlCommand.ExecuteReader())
             {
                 VerifySensitivityClassification(reader, rankEnabled);
@@ -131,64 +126,50 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
             Assert.Equal(i == 1 ? "Company Name" : (i == 2 ? "Person Name" : "Contact Information"), informationType.Name);
         }
 
-        private static void CreateTable(SqlCommand sqlCommand)
-        {
-            sqlCommand.CommandText = "CREATE TABLE " + s_tableName + " ("
-                + "[Id] [int] IDENTITY(1,1) NOT NULL,"
-                + "[CompanyName] [nvarchar](40) NOT NULL,"
-                + "[ContactName] [nvarchar](50) NULL,"
-                + "[ContactTitle] [nvarchar](40) NULL,"
-                + "[City] [nvarchar](40) NULL,"
-                + "[CountryName] [nvarchar](40) NULL,"
-                + "[Phone] [nvarchar](30) MASKED WITH (FUNCTION = 'default()') NULL,"
-                + "[Fax] [nvarchar](30) MASKED WITH (FUNCTION = 'default()') NULL)";
-            sqlCommand.ExecuteNonQuery();
-        }
-
-        private static void AddSensitivity(SqlCommand sqlCommand, bool rankEnabled = false)
+        private static void AddSensitivity(SqlCommand sqlCommand, Table classifiedTable, bool rankEnabled = false)
         {
             if (rankEnabled)
             {
-                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + s_tableName
+                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + classifiedTable.Name
                         + ".CompanyName WITH (LABEL='PII', LABEL_ID='L1', INFORMATION_TYPE='Company Name', INFORMATION_TYPE_ID='COMPANY', RANK=LOW)";
                 sqlCommand.ExecuteNonQuery();
 
-                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + s_tableName
+                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + classifiedTable.Name
                         + ".ContactName WITH (LABEL='PII', LABEL_ID='L1', INFORMATION_TYPE='Person Name', INFORMATION_TYPE_ID='NAME', RANK=LOW)";
                 sqlCommand.ExecuteNonQuery();
 
-                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + s_tableName
+                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + classifiedTable.Name
                         + ".Phone WITH (LABEL='PII', LABEL_ID='L1', INFORMATION_TYPE='Contact Information', INFORMATION_TYPE_ID='CONTACT', RANK=MEDIUM)";
                 sqlCommand.ExecuteNonQuery();
 
-                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + s_tableName
+                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + classifiedTable.Name
                         + ".Fax WITH (LABEL='PII', LABEL_ID='L1', INFORMATION_TYPE='Contact Information', INFORMATION_TYPE_ID='CONTACT', RANK=MEDIUM)";
                 sqlCommand.ExecuteNonQuery();
             }
             else
             {
-                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + s_tableName
+                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + classifiedTable.Name
                         + ".CompanyName WITH (LABEL='PII', LABEL_ID='L1', INFORMATION_TYPE='Company Name', INFORMATION_TYPE_ID='COMPANY')";
                 sqlCommand.ExecuteNonQuery();
 
-                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + s_tableName
+                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + classifiedTable.Name
                         + ".ContactName WITH (LABEL='PII', LABEL_ID='L1', INFORMATION_TYPE='Person Name', INFORMATION_TYPE_ID='NAME')";
                 sqlCommand.ExecuteNonQuery();
 
-                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + s_tableName
+                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + classifiedTable.Name
                         + ".Phone WITH (LABEL='PII', LABEL_ID='L1', INFORMATION_TYPE='Contact Information', INFORMATION_TYPE_ID='CONTACT')";
                 sqlCommand.ExecuteNonQuery();
 
-                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + s_tableName
+                sqlCommand.CommandText = "ADD SENSITIVITY CLASSIFICATION TO " + classifiedTable.Name
                         + ".Fax WITH (LABEL='PII', LABEL_ID='L1', INFORMATION_TYPE='Contact Information', INFORMATION_TYPE_ID='CONTACT')";
                 sqlCommand.ExecuteNonQuery();
             }
         }
 
-        private static void InsertData(SqlCommand sqlCommand)
+        private static void InsertData(SqlCommand sqlCommand, Table classifiedTable)
         {
             // INSERT ROWS OF DATA
-            sqlCommand.CommandText = "INSERT INTO " + s_tableName + " VALUES (@companyName, @contactName, @contactTitle, @city, @country, @phone, @fax)";
+            sqlCommand.CommandText = "INSERT INTO " + classifiedTable.Name + " VALUES (@companyName, @contactName, @contactTitle, @city, @country, @phone, @fax)";
 
             sqlCommand.Parameters.AddWithValue("@companyName", "Exotic Liquids");
             sqlCommand.Parameters.AddWithValue("@contactName", "Charlotte Cooper");
