@@ -1760,6 +1760,7 @@ public sealed class SqlDependency
 }
 
 /// <include file='../../../doc/snippets/Microsoft.Data.SqlClient/SqlError.xml' path='docs/members[@name="SqlError"]/SqlError/*'/>
+[System.SerializableAttribute]
 public sealed class SqlError
 {
     /// <include file='../../../doc/snippets/Microsoft.Data.SqlClient/SqlError.xml' path='docs/members[@name="SqlError"]/ctor/*'/>
@@ -1785,6 +1786,7 @@ public sealed class SqlError
 }
 
 /// <include file='../../../doc/snippets/Microsoft.Data.SqlClient/SqlErrorCollection.xml' path='docs/members[@name="SqlErrorCollection"]/SqlErrorCollection/*'/>
+[System.SerializableAttribute]
 [System.ComponentModel.ListBindableAttribute(false)]
 public sealed class SqlErrorCollection : System.Collections.ICollection, System.Collections.IEnumerable
 {
@@ -1807,12 +1809,13 @@ public sealed class SqlErrorCollection : System.Collections.ICollection, System.
 }
 
 /// <include file='../../../doc/snippets/Microsoft.Data.SqlClient/SqlException.xml' path='docs/members[@name="SqlException"]/SqlException/*'/>
-#if NETFRAMEWORK
-[System.Serializable]
-#endif
+[System.SerializableAttribute]
 public sealed class SqlException : System.Data.Common.DbException
 {
     internal SqlException() { }
+    #if NET
+    [System.Obsolete]
+    #endif
     private SqlException(System.Runtime.Serialization.SerializationInfo info, System.Runtime.Serialization.StreamingContext context) { }
 
     #if NET
