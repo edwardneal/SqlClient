@@ -28,14 +28,10 @@ namespace Microsoft.Data.SqlClient
         [OptionalField(VersionAdded = 4)]
 #endif
         private Guid _clientConnectionId = Guid.Empty;
-#if NETFRAMEWORK
         [IgnoreDataMember]
-#endif
         private SqlBatchCommand _batchCommand;
-#if NETFRAMEWORK
         [IgnoreDataMember]
-#endif
-        // Do not serialize this field! It is used to indicate that no reconnection attempts are required
+        // Indicates that no reconnection attempts are required
         internal bool _doNotReconnect = false;
 
         private SqlException(string message, SqlErrorCollection errorCollection, Exception innerException, Guid conId) : base(message, innerException)
