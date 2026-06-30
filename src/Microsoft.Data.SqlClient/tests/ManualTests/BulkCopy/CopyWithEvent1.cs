@@ -4,6 +4,7 @@
 
 using System.Data.Common;
 using Microsoft.Data.SqlClient.ManualTesting.Tests;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
@@ -38,16 +39,13 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
         {
             string srcConstr = DataTestUtility.TCPConnectionString;
             string dstConstr = DataTestUtility.TCPConnectionString;
-            string dstTable = DataTestUtility.GetShortName("SqlBulkCopyTest_CopyWithEvent1", false);
             using (SqlConnection dstConn = new SqlConnection(dstConstr))
             using (SqlCommand dstCmd = dstConn.CreateCommand())
             {
                 dstConn.Open();
 
-                try
+                using (Table dstTable = new(dstConn, nameof(CopyWithEvent1), "(orderid int, customerid nchar(5), rdate datetime, freight money, shipname nvarchar(40))"))
                 {
-                    Helpers.TryExecute(dstCmd, "create table " + dstTable + " (orderid int, customerid nchar(5), rdate datetime, freight money, shipname nvarchar(40))");
-
                     using (SqlConnection srcConn = new SqlConnection(srcConstr))
                     using (SqlCommand srcCmd = new SqlCommand("select top 100 * from orders", srcConn))
                     {
@@ -58,7 +56,7 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
                         {
                             bulkcopy.SqlRowsCopied += new SqlRowsCopiedEventHandler(OnRowCopied);
 
-                            bulkcopy.DestinationTableName = dstTable;
+                            bulkcopy.DestinationTableName = dstTable.Name;
                             bulkcopy.NotifyAfter = 50;
 
                             SqlBulkCopyColumnMappingCollection ColumnMappings = bulkcopy.ColumnMappings;
@@ -75,10 +73,6 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
                             bulkcopy.Close();
                         }
                     }
-                }
-                finally
-                {
-                    Helpers.TryExecute(dstCmd, "drop table " + dstTable);
                 }
             }
         }
