@@ -5,6 +5,7 @@
 using System;
 using System.Data;
 using Microsoft.Data.SqlClient.ManualTesting.Tests;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
@@ -16,25 +17,12 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
         public void Test()
         {
             string constr = DataTestUtility.TCPConnectionString;
-            string dstTable = DataTestUtility.GetShortName("SqlBulkCopyTest_Bug903514", false);
-            using (SqlConnection dstConn = new SqlConnection(constr))
-            using (SqlCommand dstCmd = dstConn.CreateCommand())
-            {
-                dstConn.Open();
+            using SqlConnection dstConn = new SqlConnection(constr);
+            using Table dstTable = new(dstConn, nameof(Bug903514), "(col1 int, col2 varchar(7000))");
 
-                Helpers.TryExecute(dstCmd, "create table " + dstTable + " (col1 int, col2 varchar(7000))");
-            }
+            DoBulkCopy(constr, dstTable.UnescapedName, 2);
+            DoBulkCopy(constr, dstTable.UnescapedName, 0);
 
-            DoBulkCopy(constr, dstTable, 2);
-            DoBulkCopy(constr, dstTable, 0);
-
-            using (SqlConnection dstConn = new SqlConnection(constr))
-            using (SqlCommand dstCmd = dstConn.CreateCommand())
-            {
-                dstConn.Open();
-
-                Helpers.TryExecute(dstCmd, "drop table " + dstTable);
-            }
         }
 
         private static void DoBulkCopy(string dstConstr, string dstTable, int timeout)
