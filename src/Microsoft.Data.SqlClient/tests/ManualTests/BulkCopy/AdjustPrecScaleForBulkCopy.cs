@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -7,6 +7,7 @@ using System.Data;
 using System.Data.SqlTypes;
 using Microsoft.Data.SqlClient.ManualTesting.Tests;
 using Microsoft.Data.SqlClient.Tests.Common;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
@@ -47,14 +48,12 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
 
         private static SqlDecimal BulkCopySqlDecimalToTable(SqlDecimal decimalValue, int sourcePrecision, int sourceScale, int targetPrecision, int targetScale)
         {
-            string tableName = DataTestUtility.GetLongName("Table");
             string connectionString = DataTestUtility.TCPConnectionString;
-
             SqlDecimal resultValue;
-            try
-            {
-                DataTestUtility.RunNonQuery(connectionString, $"create table {tableName} (target_column decimal({targetPrecision}, {targetScale}))");
 
+            using (SqlConnection mgmtConnection = new(connectionString))
+            using (Table table = new(mgmtConnection, nameof(BulkCopySqlDecimalToTable), "(target_column decimal({targetPrecision}, {targetScale}))"))
+            {
                 SqlDecimal inputValue = SqlDecimal.ConvertToPrecScale(decimalValue, sourcePrecision, sourceScale);
 
                 DataTable dt = new DataTable();
@@ -66,17 +65,13 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
 
                 using (SqlBulkCopy sbc = new SqlBulkCopy(connectionString, SqlBulkCopyOptions.KeepIdentity))
                 {
-                    sbc.DestinationTableName = tableName;
+                    sbc.DestinationTableName = table.Name;
                     sbc.ColumnMappings.Add("source_column", "target_column");
                     sbc.WriteToServer(dt);
                 }
 
-                DataTable resultTable = DataTestUtility.RunQuery(connectionString, $"select * from {tableName}");
+                using DataTable resultTable = DataTestUtility.RunQuery(connectionString, $"select * from {table.Name}");
                 resultValue = new SqlDecimal((decimal)resultTable.Rows[0][0]);
-            }
-            finally
-            {
-                DataTestUtility.RunNonQuery(connectionString, $"drop table {tableName}");
             }
 
             return resultValue;
