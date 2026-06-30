@@ -4,6 +4,7 @@
 
 using System.Data;
 using Microsoft.Data.SqlClient.ManualTesting.Tests;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
@@ -15,15 +16,10 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
         public void Test()
         {
             string dstConstr = DataTestUtility.TCPConnectionString;
-            string dstTable = DataTestUtility.GetShortName("SqlBulkCopyTest_ColumnCollation", false);
             using (SqlConnection dstConn = new SqlConnection(dstConstr))
+            using (Table dstTable = new(dstConn, "ColumnCollation", "(name_jp varchar(20) collate Japanese_CI_AS, name_ru varchar(20) collate Cyrillic_General_CI_AS)"))
             using (SqlCommand dstCmd = dstConn.CreateCommand())
             {
-                dstConn.Open();
-
-                Helpers.TryExecute(dstCmd, "create table " + dstTable + " (name_jp varchar(20) collate Japanese_CI_AS, " +
-                    "name_ru varchar(20) collate Cyrillic_General_CI_AS)");
-
                 string s_jp = "江戸糸あやつり人形";
                 string s_ru = "проверка";
 
@@ -37,11 +33,11 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
 
                 using (SqlBulkCopy bcp = new SqlBulkCopy(dstConn))
                 {
-                    bcp.DestinationTableName = dstTable;
+                    bcp.DestinationTableName = dstTable.UnescapedName;
                     bcp.WriteToServer(table);
                 }
 
-                using (SqlDataReader reader = (new SqlCommand("select * from  " + dstTable, dstConn)).ExecuteReader())
+                using (SqlDataReader reader = (new SqlCommand("select * from  " + dstTable.Name, dstConn)).ExecuteReader())
                 {
                     while (reader.Read())
                     {
@@ -55,13 +51,6 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
                     }
                 }
 
-            }
-
-            using (SqlConnection dstConn = new SqlConnection(dstConstr))
-            using (SqlCommand dstCmd = dstConn.CreateCommand())
-            {
-                dstConn.Open();
-                Helpers.TryExecute(dstCmd, "drop table " + dstTable);
             }
         }
 
