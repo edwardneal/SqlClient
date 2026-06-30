@@ -61,45 +61,40 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
         public static void ReaderParameterTest()
         {
-            string tableName = "#t_" + Guid.NewGuid().ToString().Replace('-', '_');
-            string procName = "#p_" + Guid.NewGuid().ToString().Replace('-', '_');
-            string procNullName = "#pn_" + Guid.NewGuid().ToString().Replace('-', '_');
-
-            string tempTableCreate = "CREATE TABLE " + tableName + " (ci int, c0 dateTime, c1 date, c2 time(7), c3 datetime2(3), c4 datetimeoffset)";
-            string tempTableInsert1 = "INSERT INTO " + tableName + " VALUES (0, " +
-                "'1753-01-01 12:00AM', " +
-                "'1753-01-01', " +
-                "'20:12:13.36', " +
-                "'2000-12-31 23:59:59.997', " +
-                "'9999-12-31 15:59:59.997 -08:00')";
-            string tempTableInsert2 = "INSERT INTO " + tableName + " VALUES (@pi, @p0, @p1, @p2, @p3, @p4)";
-
-            string createProc = "CREATE PROCEDURE " + procName + " @p0 datetime OUTPUT, @p1 date OUTPUT, @p2 time(7) OUTPUT, @p3 datetime2(3) OUTPUT, @p4 datetimeoffset OUTPUT";
-            createProc += " AS ";
-            createProc += " SET @p0 = '1753-01-01 12:00AM'";
-            createProc += " SET @p1 = '1753-01-01'";
-            createProc += " SET @p2 = '20:12:13.36'";
-            createProc += " SET @p3 = '2000-12-31 23:59:59.997'";
-            createProc += "SET @p4 = '9999-12-31 15:59:59.997 -08:00'";
-
-            string createProcN = "CREATE PROCEDURE " + procNullName + " @p0 datetime OUTPUT, @p1 date OUTPUT, @p2 time(7) OUTPUT, @p3 datetime2(3) OUTPUT, @p4 datetimeoffset OUTPUT";
-            createProcN += " AS ";
-            createProcN += " SET @p0 = NULL";
-            createProcN += " SET @p1 = NULL";
-            createProcN += " SET @p2 = NULL";
-            createProcN += " SET @p3 = NULL";
-            createProcN += " SET @p4 = NULL";
-
             using (SqlConnection conn = new SqlConnection(DataTestUtility.TCPConnectionString))
             {
-                try
+                // ReaderParameterTest Setup
+                using (Table table = new(conn, $"#t_{nameof(ReaderParameterTest)}", "(ci int, c0 dateTime, c1 date, c2 time(7), c3 datetime2(3), c4 datetimeoffset)"))
+                using (StoredProcedure spNonNullOutput = new(conn, $"#p_{nameof(ReaderParameterTest)}",
+                    "@p0 datetime OUTPUT, @p1 date OUTPUT, @p2 time(7) OUTPUT, @p3 datetime2(3) OUTPUT, @p4 datetimeoffset OUTPUT" +
+                    " AS" +
+                    " SET @p0 = '1753-01-01 12:00AM'" +
+                    " SET @p1 = '1753-01-01'" +
+                    " SET @p2 = '20:12:13.36'" +
+                    " SET @p3 = '2000-12-31 23:59:59.997'" +
+                    " SET @p4 = '9999-12-31 15:59:59.997 -08:00'"))
+                using (StoredProcedure spNullOutput = new(conn, $"#pn_{nameof(ReaderParameterTest)}",
+                    "@p0 datetime OUTPUT, @p1 date OUTPUT, @p2 time(7) OUTPUT, @p3 datetime2(3) OUTPUT, @p4 datetimeoffset OUTPUT" +
+                    " AS" +
+                    " SET @p0 = NULL" +
+                    " SET @p1 = NULL" +
+                    " SET @p2 = NULL" +
+                    " SET @p3 = NULL" +
+                    " SET @p4 = NULL"))
                 {
-                    // ReaderParameterTest Setup
-                    conn.Open();
+                    string tableName = table.Name;
+                    string procName = spNonNullOutput.Name;
+                    string procNullName = spNullOutput.Name;
+                    string tempTableInsert1 = "INSERT INTO " + tableName + " VALUES (0, " +
+                        "'1753-01-01 12:00AM', " +
+                        "'1753-01-01', " +
+                        "'20:12:13.36', " +
+                        "'2000-12-31 23:59:59.997', " +
+                        "'9999-12-31 15:59:59.997 -08:00')";
+                    string tempTableInsert2 = "INSERT INTO " + tableName + " VALUES (@pi, @p0, @p1, @p2, @p3, @p4)";
+
                     using (SqlCommand cmd = conn.CreateCommand())
                     {
-                        cmd.CommandText = tempTableCreate;
-                        cmd.ExecuteNonQuery();
                         cmd.CommandText = tempTableInsert1;
                         cmd.ExecuteNonQuery();
 
@@ -166,14 +161,10 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
 
                             // Test 3
 
-                            cmd.CommandText = createProc;
-                            cmd.ExecuteNonQuery();
-                            cmd.CommandText = createProcN;
-                            cmd.ExecuteNonQuery();
                             using (SqlCommand cmd3 = conn.CreateCommand())
                             {
                                 cmd3.CommandType = CommandType.StoredProcedure;
-                                cmd3.CommandText = procName;
+                                cmd3.CommandText = spNonNullOutput.Name;
                                 p0 = cmd3.Parameters.Add("@p0", SqlDbType.DateTime);
                                 p1 = cmd3.Parameters.Add("@p1", SqlDbType.Date);
                                 p2 = cmd3.Parameters.Add("@p2", SqlDbType.Time);
@@ -197,7 +188,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                                 Assert.True(p4.Scale.Equals(7), "FAILED: SqlParameter p4 contained incorrect scale");
 
                                 // Test 4
-                                cmd3.CommandText = procNullName;
+                                cmd3.CommandText = spNullOutput.Name;
                                 cmd3.ExecuteNonQuery();
                             }
                             Assert.True(p0.Value.Equals(DBNull.Value), "FAILED: SqlParameter p0 expected to be NULL");
@@ -327,7 +318,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                             using (SqlCommand cmd4 = conn.CreateCommand())
                             {
                                 cmd4.CommandType = CommandType.StoredProcedure;
-                                cmd4.CommandText = procName;
+                                cmd4.CommandText = spNonNullOutput.Name;
                                 p0 = cmd3.CreateParameter();
                                 p0.DbType = DbType.DateTime;
                                 p0.ParameterName = "@p0";
@@ -367,7 +358,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                                 Assert.True(p4.Scale.Equals(7), "FAILED: SqlParameter p4 contained incorrect scale");
 
                                 // Test 4
-                                cmd4.CommandText = procNullName;
+                                cmd4.CommandText = spNullOutput.Name;
                                 cmd4.ExecuteNonQuery();
                             }
                             Assert.True(p0.Value.Equals(DBNull.Value), "FAILED: SqlParameter p0 expected to be NULL");
@@ -507,18 +498,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                             }
                         }
                         #endregion
-                    }
-                }
-                finally
-                {
-                    using (SqlCommand cmd = conn.CreateCommand())
-                    {
-                        cmd.CommandText = "DROP TABLE " + tableName;
-                        cmd.ExecuteNonQuery();
-                        cmd.CommandText = "DROP PROCEDURE " + procName;
-                        cmd.ExecuteNonQuery();
-                        cmd.CommandText = "DROP PROCEDURE " + procNullName;
-                        cmd.ExecuteNonQuery();
                     }
                 }
             }
