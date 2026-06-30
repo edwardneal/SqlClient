@@ -4,6 +4,7 @@
 
 using System.Data.Common;
 using Microsoft.Data.SqlClient.ManualTesting.Tests;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
@@ -16,15 +17,13 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
         {
             string srcConstr = DataTestUtility.TCPConnectionString;
             string dstConstr = DataTestUtility.TCPConnectionString;
-            string dstTable = DataTestUtility.GetShortName("SqlBulkCopyTest_CopyAllFromReader1", false);
             using (SqlConnection dstConn = new SqlConnection(dstConstr))
             using (SqlCommand dstCmd = dstConn.CreateCommand())
             {
                 dstConn.Open();
-                try
-                {
-                    Helpers.TryExecute(dstCmd, "create table " + dstTable + " (col1 int, col2 nvarchar(20), col3 nvarchar(10))");
 
+                using (Table dstTable = new(dstConn, nameof(CopyAllFromReader1), "(col1 int, col2 nvarchar(20), col3 nvarchar(10))"))
+                {
                     using (SqlConnection srcConn = new SqlConnection(srcConstr))
                     using (SqlCommand srcCmd = new SqlCommand("select top 5 * from employees", srcConn))
                     {
@@ -33,7 +32,7 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
                         {
                             using (SqlBulkCopy bulkcopy = new SqlBulkCopy(dstConn))
                             {
-                                bulkcopy.DestinationTableName = dstTable;
+                                bulkcopy.DestinationTableName = dstTable.Name;
                                 SqlBulkCopyColumnMappingCollection ColumnMappings = bulkcopy.ColumnMappings;
 
                                 ColumnMappings.Add("EmployeeID", "col1");
@@ -45,13 +44,9 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
                                 DataTestUtility.AssertEqualsWithDescription(bulkcopy.RowsCopied, 5, "Unexpected number of rows.");
                                 DataTestUtility.AssertEqualsWithDescription(bulkcopy.RowsCopied64, (long)5, "Unexpected number of rows.");
                             }
-                            Helpers.VerifyResults(dstConn, dstTable, 3, 5);
+                            Helpers.VerifyResults(dstConn, dstTable.Name, 3, 5);
                         }
                     }
-                }
-                finally
-                {
-                    Helpers.TryExecute(dstCmd, "drop table " + dstTable);
                 }
             }
         }
