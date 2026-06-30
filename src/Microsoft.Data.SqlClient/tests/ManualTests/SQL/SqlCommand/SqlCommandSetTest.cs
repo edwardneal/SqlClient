@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Data.SqlTypes;
 using System.Reflection;
 using System.Text;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTesting.Tests
@@ -20,20 +21,18 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
         public void TestByteArrayParameters()
         {
-            string tableName = DataTestUtility.GetLongName("CMD");
-            string procName = DataTestUtility.GetLongName("CMD");
             byte[] bArray = new byte[] { 1, 2, 3 };
 
             using (var connection = new SqlConnection(DataTestUtility.TCPConnectionString))
-            using (var cmd = new SqlCommand(procName, connection))
+            using (var cmd = connection.CreateCommand())
             {
-                try
+                using (Table byteArrayTable = new(connection, nameof(TestByteArrayParameters), "(ByteArrayColumn varbinary(max))"))
+                using (StoredProcedure byteArrayProc = new(connection, nameof(TestByteArrayParameters), $"@array varbinary(max) AS BEGIN SET NOCOUNT ON; " +
+                    $"insert into {byteArrayTable.Name}(ByteArrayColumn) values(@array) END"))
                 {
-                    connection.Open();
-
-                    setupByteArrayArtifacts(connection, tableName, procName);
 
                     // Insert with SqlCommand
+                    cmd.CommandText = byteArrayProc.Name;
                     cmd.CommandType = System.Data.CommandType.StoredProcedure;
                     SqlCommandBuilder.DeriveParameters(cmd);
                     cmd.Parameters["@array"].Value = bArray;
@@ -48,7 +47,7 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                     commandSetType.GetMethod("ExecuteNonQuery", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).Invoke(cmdSet, new object[] { });
 
                     cmd.CommandType = System.Data.CommandType.Text;
-                    cmd.CommandText = $"SELECT * FROM {tableName}";
+                    cmd.CommandText = $"SELECT * FROM {byteArrayTable.Name}";
                     using (SqlDataReader reader = cmd.ExecuteReader())
                     {
                         while (reader.Read())
@@ -63,35 +62,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                         }
                     }
                 }
-                finally
-                {
-                    dropByteArrayArtifacts(connection, tableName, procName);
-                }
-            }
-        }
-
-        private void dropByteArrayArtifacts(SqlConnection connection, string tableName, string procName)
-        {
-            using (SqlCommand cmd = connection.CreateCommand())
-            {
-                cmd.CommandText = $"DROP TABLE IF EXISTS {tableName}";
-                cmd.ExecuteNonQuery();
-
-                cmd.CommandText = $"DROP PROCEDURE IF EXISTS {procName}";
-                cmd.ExecuteNonQuery();
-            }
-        }
-
-        private void setupByteArrayArtifacts(SqlConnection connection, string tableName, string procName)
-        {
-            using (SqlCommand cmd = connection.CreateCommand())
-            {
-                cmd.CommandText = $"CREATE TABLE {tableName} (ByteArrayColumn varbinary(max))";
-                cmd.ExecuteNonQuery();
-
-                cmd.CommandText = $"CREATE PROCEDURE {procName} @array varbinary(max) AS BEGIN SET NOCOUNT ON; " +
-                    $"insert into {tableName}(ByteArrayColumn) values(@array) END";
-                cmd.ExecuteNonQuery();
             }
         }
     }
