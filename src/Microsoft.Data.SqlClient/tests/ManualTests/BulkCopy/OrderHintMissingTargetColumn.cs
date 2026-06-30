@@ -5,6 +5,7 @@
 using System;
 using System.Data.Common;
 using Microsoft.Data.SqlClient.ManualTesting.Tests;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
@@ -13,22 +14,18 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
     public class OrderHintMissingTargetColumn
     {
         private static readonly string sourceTable = "Customers";
-        private static readonly string initialQueryTemplate = "create table {0} (CustomerID nvarchar(50), CompanyName nvarchar(50), ContactName nvarchar(50))";
         private static readonly string sourceQueryTemplate = "SELECT CustomerID, CompanyName, ContactName FROM {0}";
         // Synapse: Remove dependency on Northwind database.
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
         public void Test()
         {
             string connStr = DataTestUtility.TCPConnectionString;
-            string dstTable = DataTestUtility.GetShortName("SqlBulkCopyTest_OrderHintMissingTargetColumn", false);
-            string initialQuery = string.Format(initialQueryTemplate, dstTable);
             string sourceQuery = string.Format(sourceQueryTemplate, sourceTable);
 
             using (SqlConnection dstConn = new SqlConnection(connStr))
             using (SqlCommand dstCmd = dstConn.CreateCommand())
             {
                 dstConn.Open();
-                Helpers.TryExecute(dstCmd, initialQuery);
                 using (SqlConnection srcConn = new SqlConnection(connStr))
                 using (SqlCommand srcCmd = new SqlCommand(sourceQuery, srcConn))
                 {
@@ -37,9 +34,9 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
                     {
                         using (SqlBulkCopy bulkcopy = new SqlBulkCopy(dstConn))
                         {
-                            try
+                            using (Table dstTable = new(dstConn, nameof(OrderHintMissingTargetColumn), "(CustomerID nvarchar(50), CompanyName nvarchar(50), ContactName nvarchar(50))"))
                             {
-                                bulkcopy.DestinationTableName = dstTable;
+                                bulkcopy.DestinationTableName = dstTable.Name;
                                 const string nonexistentColumn = "nonexistent column";
                                 const string sourceColumn = "CustomerID";
                                 const string destColumn = "ContactName";
@@ -64,10 +61,6 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
                                 DataTestUtility.AssertThrows<InvalidOperationException>(
                                     () => bulkcopy.WriteToServer(reader),
                                     exceptionMessage: expectedErrorMsg);
-                            }
-                            finally
-                            {
-                                DataTestUtility.DropTable(dstConn, dstTable);
                             }
                         }
                     }
