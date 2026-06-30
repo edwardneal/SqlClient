@@ -6,6 +6,7 @@ using System.Collections;
 using System.Data.Common;
 using System.Diagnostics;
 using Microsoft.Data.SqlClient.ManualTesting.Tests;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
@@ -13,30 +14,24 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
     [Trait("Set", "2")]
     public class CopyAllFromReader
     {
-        private static readonly string destinationTable = null;
         private static readonly string sourceTable = "employees";
-        private static readonly string initialQueryTemplate = "create table {0} (col1 int, col2 nvarchar(20), col3 nvarchar(10))";
         private static readonly string sourceQueryTemplate = "select top 5 EmployeeID, LastName, FirstName from {0}";
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureServer))]
         public void Test()
         {
             string srcConstr = DataTestUtility.TCPConnectionString;
             string dstConstr = DataTestUtility.TCPConnectionString;
-            string dstTable = DataTestUtility.GetShortName("SqlBulkCopyTest_CopyAllFromReader", false);
             Debug.Assert((int)SqlBulkCopyOptions.UseInternalTransaction == 1 << 5, "Compiler screwed up the options");
 
-            dstTable = destinationTable != null ? destinationTable : dstTable;
-
             string sourceQuery = string.Format(sourceQueryTemplate, sourceTable);
-            string initialQuery = string.Format(initialQueryTemplate, dstTable);
 
             using (SqlConnection dstConn = new SqlConnection(dstConstr))
             using (SqlCommand dstCmd = dstConn.CreateCommand())
             {
                 dstConn.Open();
-                try
+
+                using (Table dstTable = new(dstConn, nameof(CopyAllFromReader), "(col1 int, col2 nvarchar(20), col3 nvarchar(10))"))
                 {
-                    Helpers.TryExecute(dstCmd, initialQuery);
                     using (SqlConnection srcConn = new SqlConnection(srcConstr))
                     using (SqlCommand srcCmd = new SqlCommand(sourceQuery, srcConn))
                     {
@@ -51,13 +46,13 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
                             long expectedTransactions = DataTestUtility.IsAzureSynapse || DataTestUtility.IsAtLeastSQL2017() ? 2 : 1;
                             using (SqlBulkCopy bulkcopy = new SqlBulkCopy(dstConn))
                             {
-                                bulkcopy.DestinationTableName = dstTable;
+                                bulkcopy.DestinationTableName = dstTable.Name;
                                 dstConn.StatisticsEnabled = true;
                                 bulkcopy.WriteToServer(reader);
                                 dstConn.StatisticsEnabled = false;
                                 stats = dstConn.RetrieveStatistics();
                             }
-                            Helpers.VerifyResults(dstConn, dstTable, 3, 5);
+                            Helpers.VerifyResults(dstConn, dstTable.Name, 3, 5);
 
                             Assert.True(0 < (long)stats["BytesReceived"], "BytesReceived is non-positive.");
                             Assert.True(0 < (long)stats["BytesSent"], "BytesSent is non-positive.");
@@ -77,10 +72,6 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
                             DataTestUtility.AssertEqualsWithDescription(expectedTransactions, stats["Transactions"], "Unexpected Transactions value.");
                         }
                     }
-                }
-                finally
-                {
-                    Helpers.TryExecute(dstCmd, "drop table " + dstTable);
                 }
             }
         }
