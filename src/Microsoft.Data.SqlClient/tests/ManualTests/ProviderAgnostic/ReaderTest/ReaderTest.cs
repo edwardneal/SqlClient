@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -7,6 +7,7 @@ using System.Data.Common;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTesting.Tests
@@ -276,40 +277,26 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
         public static void SqlDataReader_SqlBuffer_GetFieldValue()
         {
-            string tableName = DataTestUtility.GetLongName("SqlBuffer_GetFieldValue");
             DateTimeOffset dtoffset = DateTimeOffset.Now;
             DateTime dt = DateTime.Now;
             //Exclude the millisecond because of rounding at some points by SQL Server.
             DateTime dateTime = new DateTime(dt.Year, dt.Month, dt.Day, dt.Hour, dt.Minute, dt.Second);
             //Arrange
-            DbProviderFactory provider = SqlClientFactory.Instance;
+            SqlClientFactory provider = SqlClientFactory.Instance;
 
-            using DbConnection con = provider.CreateConnection();
+            using SqlConnection con = (SqlConnection)provider.CreateConnection();
             con.ConnectionString = DataTestUtility.TCPConnectionString;
             con.Open();
-            string sqlQueryOne = $"CREATE TABLE {tableName} ([CustomerId] [int],[FirstName] [nvarchar](50),[BoolCol] [BIT],[ShortCol] [SMALLINT],[ByteCol] [TINYINT],[LongCol] [BIGINT]);";
-            string sqlQueryTwo = $"ALTER TABLE {tableName} ADD [DoubleCol] [FLOAT],[SingleCol] [REAL],[GUIDCol] [uniqueidentifier],[DateTimeCol] [DateTime],[DecimalCol] [SmallMoney],[DateTimeOffsetCol] [DateTimeOffset], [DateCol] [Date], [TimeCol] [Time];";
 
-            try
+            using (Table tbl = new(con, "SqlBuffer_GetFieldValue",
+                "([CustomerId] [int],[FirstName] [nvarchar](50),[BoolCol] [BIT],[ShortCol] [SMALLINT],[ByteCol] [TINYINT],[LongCol] [BIGINT]," +
+                "[DoubleCol] [FLOAT],[SingleCol] [REAL],[GUIDCol] [uniqueidentifier],[DateTimeCol] [DateTime],[DecimalCol] [SmallMoney],[DateTimeOffsetCol] [DateTimeOffset], [DateCol] [Date], [TimeCol] [Time])"))
             {
-                using (DbCommand command = provider.CreateCommand())
-                {
-                    command.Connection = con;
-                    command.CommandText = sqlQueryOne;
-                    command.ExecuteNonQuery();
-                }
-                using (DbCommand command = provider.CreateCommand())
-                {
-                    command.Connection = con;
-                    command.CommandText = sqlQueryTwo;
-                    command.ExecuteNonQuery();
-                }
-
                 System.Data.SqlTypes.SqlGuid sqlguid = new System.Data.SqlTypes.SqlGuid(Guid.NewGuid());
 
-                using (SqlCommand sqlCommand = new SqlCommand("", con as SqlConnection))
+                using (SqlCommand sqlCommand = new SqlCommand("", con))
                 {
-                    sqlCommand.CommandText = $"INSERT INTO {tableName} "
+                    sqlCommand.CommandText = $"INSERT INTO {tbl.Name} "
                                              + "VALUES (@CustomerId,@FirstName,@BoolCol,@ShortCol,@ByteCol,@LongCol,@DoubleCol,@SingleCol"
                                             + ",@GUIDCol,@DateTimeCol,@DecimalCol,@DateTimeOffsetCol,@DateCol,@TimeCol)";
                     sqlCommand.Parameters.AddWithValue(@"CustomerId", 1);
@@ -328,9 +315,9 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                     sqlCommand.Parameters.AddWithValue(@"TimeCol", new TimeSpan(0, 22, 7, 44));
                     sqlCommand.ExecuteNonQuery();
                 }
-                using (SqlCommand sqlCommand = new SqlCommand("", con as SqlConnection))
+                using (SqlCommand sqlCommand = new SqlCommand("", con))
                 {
-                    sqlCommand.CommandText = "select top 1 * from " + tableName;
+                    sqlCommand.CommandText = "select top 1 * from " + tbl.Name;
                     using (DbDataReader reader = sqlCommand.ExecuteReader())
                     {
                         Assert.True(reader.Read());
@@ -354,16 +341,6 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                         Assert.Equal(new TimeOnly(22, 7, 44), reader.GetFieldValue<TimeOnly>(13));
 #endif
                     }
-                }
-            }
-            finally
-            {
-                //cleanup
-                using (DbCommand cmd = provider.CreateCommand())
-                {
-                    cmd.Connection = con;
-                    cmd.CommandText = "drop table " + tableName;
-                    cmd.ExecuteNonQuery();
                 }
             }
         }
