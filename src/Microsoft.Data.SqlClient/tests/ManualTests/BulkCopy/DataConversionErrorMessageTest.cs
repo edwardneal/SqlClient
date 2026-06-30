@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -6,6 +6,7 @@ using System;
 using System.Data;
 using System.Text;
 using Microsoft.Data.SqlClient.ManualTesting.Tests;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
@@ -16,91 +17,14 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
         _varChar3 = 1
     }
 
-    public sealed class InitialDatabase : IDisposable
-    {
-        private string srcConstr { get; }
-
-        public SqlConnection Connection { get; }
-
-        public string TableName { get; }
-
-        public InitialDatabase()
-        {
-            srcConstr = DataTestUtility.TCPConnectionString;
-
-            Connection = new SqlConnection(srcConstr);
-            TableName = DataTestUtility.GetLongName("SqlBulkCopyTest_CopyStringToIntTest_");
-            InitialTable(Connection, TableName);
-        }
-
-        #region database manupulation
-        private string CreateTableCommand(SqlCommand command, string tableName)
-        {
-            using (command)
-            {
-                var sb = new StringBuilder();
-                sb.AppendLine($"IF(OBJECT_ID('{tableName}') IS NULL)");
-                sb.AppendLine("BEGIN");
-                sb.AppendLine($"\tCREATE TABLE {tableName}");
-                sb.AppendLine($"\t(\t");
-                sb.AppendLine($"\t\t{Enum.GetName(typeof(ColumnsEnum), ColumnsEnum._int)} int NULL");
-                sb.AppendLine($"\t\t,{Enum.GetName(typeof(ColumnsEnum), ColumnsEnum._varChar3)} varchar(3) NULL");
-                sb.AppendLine($"\t)");
-                sb.AppendLine("END");
-
-                return sb.ToString();
-            }
-        }
-
-        private void InitialTable(SqlConnection sqlConnection, string targetTable)
-        {
-            sqlConnection.Open();
-
-            using (var command = new SqlCommand())
-            {
-                command.Connection = sqlConnection;
-                command.CommandText = CreateTableCommand(command, targetTable);
-                command.CommandType = CommandType.Text;
-                command.ExecuteNonQuery();
-            }
-        }
-
-        private void DropTable(SqlConnection sqlConnection, string targetTable)
-        {
-            using (var command = new SqlCommand())
-            {
-                command.Connection = sqlConnection;
-                command.CommandText = string.Format("DROP TABLE {0}", targetTable);
-                command.CommandType = CommandType.Text;
-                command.ExecuteNonQuery();
-            }
-        }
-        #endregion
-
-        public void Dispose()
-        {
-            DropTable(Connection, TableName);
-
-            Connection.Close();
-            Connection.Dispose();
-        }
-    }
-
     [Trait("Set", "2")]
-    public class DataConversionErrorMessageTest : IClassFixture<InitialDatabase>
+    public class DataConversionErrorMessageTest
     {
-        private readonly InitialDatabase _fixture;
-
         private enum SourceType
         {
             DataTable,
             DataRows,
             DataReader
-        }
-
-        public DataConversionErrorMessageTest(InitialDatabase fixture)
-        {
-            _fixture = fixture;
         }
 
         // Synapse: Column count in target table does not match column count specified in input.
@@ -109,9 +33,15 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
         public void StringToIntErrorMessageTest()
         {
-            Assert.True(StringToIntTest(_fixture.Connection, _fixture.TableName, SourceType.DataTable), "Did not get any exceptions for DataTable when converting data from 'string' to 'int' datatype!");
-            Assert.True(StringToIntTest(_fixture.Connection, _fixture.TableName, SourceType.DataRows), "Did not get any exceptions for DataRow[] when converting data from 'string' to 'int' datatype!");
-            Assert.True(StringToIntTest(_fixture.Connection, _fixture.TableName, SourceType.DataReader), "Did not get any exceptions for DataReader when converting data from 'string' to 'int' datatype!");
+            using SqlConnection dstConn = new(DataTestUtility.TCPConnectionString);
+            using Table dstTable = new(dstConn, nameof(StringToIntErrorMessageTest), @$"(
+    {nameof(ColumnsEnum._int)} int NULL,
+    {nameof(ColumnsEnum._varChar3)} varchar(3) NULL
+)");
+
+            Assert.True(StringToIntTest(dstConn, dstTable.Name, SourceType.DataTable), "Did not get any exceptions for DataTable when converting data from 'string' to 'int' datatype!");
+            Assert.True(StringToIntTest(dstConn, dstTable.Name, SourceType.DataRows), "Did not get any exceptions for DataRow[] when converting data from 'string' to 'int' datatype!");
+            Assert.True(StringToIntTest(dstConn, dstTable.Name, SourceType.DataReader), "Did not get any exceptions for DataReader when converting data from 'string' to 'int' datatype!");
         }
 
         private bool StringToIntTest(SqlConnection cnn, string targetTable, SourceType sourceType)
