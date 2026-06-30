@@ -4,6 +4,7 @@
 
 using System.Data;
 using Microsoft.Data.SqlClient.ManualTesting.Tests;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
@@ -16,7 +17,6 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
         {
             string srcConstr = DataTestUtility.TCPConnectionString;
             string dstConstr = DataTestUtility.TCPConnectionString;
-            string dstTable = DataTestUtility.GetShortName("SqlBulkCopyTest_CopySomeFromDataTable", false);
             DataSet dataset;
             SqlDataAdapter adapter;
             DataTable datatable;
@@ -26,9 +26,8 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
             {
                 dstConn.Open();
 
-                try
+                using (Table dstTable = new(dstConn, nameof(CopySomeFromDataTable), "(col1 int, col2 nvarchar(20), col3 nvarchar(10), col4 datetime)"))
                 {
-                    Helpers.TryExecute(dstCmd, "create table " + dstTable + " (col1 int, col2 nvarchar(20), col3 nvarchar(10), col4 datetime)");
                     using (SqlConnection srcConn = new SqlConnection(srcConstr))
                     using (SqlCommand srcCmd = new SqlCommand("select * from employees", srcConn))
                     {
@@ -52,7 +51,7 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
 
                         using (SqlBulkCopy bulkcopy = new SqlBulkCopy(dstConn))
                         {
-                            bulkcopy.DestinationTableName = dstTable;
+                            bulkcopy.DestinationTableName = dstTable.Name;
                             bulkcopy.BatchSize = 7;
 
                             SqlBulkCopyColumnMappingCollection ColumnMappings = bulkcopy.ColumnMappings;
@@ -68,12 +67,8 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
                             bulkcopy.Close();
                         }
 
-                        Helpers.VerifyResults(dstConn, dstTable, 4, 18);
+                        Helpers.VerifyResults(dstConn, dstTable.Name, 4, 18);
                     }
-                }
-                finally
-                {
-                    Helpers.TryExecute(dstCmd, "drop table " + dstTable);
                 }
             }
         }
