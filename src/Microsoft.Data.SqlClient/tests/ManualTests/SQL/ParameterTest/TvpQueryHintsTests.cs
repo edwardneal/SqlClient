@@ -1,4 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
+// Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
 // See the LICENSE file in the project root for more information.
 
@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using Microsoft.Data.SqlClient.Server;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTesting.Tests
@@ -19,44 +20,30 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
         private readonly SqlConnection _conn;
         private readonly SqlCommand _cmd;
         private readonly SqlParameter _param;
-        private readonly string _procName;
-        private readonly string _typeName;
+        private readonly UserDefinedType _type;
+        private readonly StoredProcedure _procedure;
 
         public TvpQueryHintsTests()
         {
-            Guid randomizer = Guid.NewGuid();
-            _typeName = string.Format("dbo.[QHint_{0}]", randomizer);
-            _procName = string.Format("dbo.[QHint_Proc_{0}]", randomizer);
-            string createTypeSql = string.Format(
-                    "CREATE TYPE {0} AS TABLE("
+            _conn = new SqlConnection(DataTestUtility.TCPConnectionString);
+            _type = new UserDefinedType(_conn, "QHint", "TABLE("
                         + " c1 Int DEFAULT -1,"
                         + " c2 NVarChar(40) DEFAULT N'DEFUALT',"
                         + " c3 DateTime DEFAULT '1/1/2006',"
-                        + " c4 Int DEFAULT -1)",
-                        _typeName);
-            string createProcSql = string.Format(
-                    "CREATE PROC {0}(@tvp {1} READONLY) AS SELECT TOP(2) * FROM @tvp ORDER BY c1", _procName, _typeName);
+                        + " c4 Int DEFAULT -1)");
+            _procedure = new StoredProcedure(_conn, "QHint_Proc", $"(@tvp {_type.Name} READONLY) AS SELECT TOP(2) * FROM @tvp ORDER BY c1");
 
-            _conn = new SqlConnection(DataTestUtility.TCPConnectionString);
-            _conn.Open();
-
-            _cmd = new SqlCommand(createTypeSql, _conn);
-            _cmd.ExecuteNonQuery();
-
-            _cmd.CommandText = createProcSql;
-            _cmd.ExecuteNonQuery();
-
-            _cmd.CommandText = _procName;
+            _cmd = new SqlCommand(_procedure.Name, _conn);
             _cmd.CommandType = CommandType.StoredProcedure;
             _param = _cmd.Parameters.Add("@tvp", SqlDbType.Structured);
         }
 
         public void Dispose()
         {
-            string dropSql = string.Format("DROP PROC {0}; DROP TYPE {1}", _procName, _typeName);
-            using SqlCommand cmd = new(dropSql, _conn);
-            cmd.ExecuteNonQuery();
-            _conn.Dispose();
+            using (_conn)
+            using (_type)
+            using (_procedure)
+            { }
         }
 
         [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.AreConnStringsSetup), nameof(DataTestUtility.IsNotAzureSynapse))]
@@ -73,11 +60,11 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                 new SqlMetaData("", SqlDbType.Int, false, true, SortOrder.Descending, 3),
             };
 
-            AddRow(rows, columnMetadata, 0, "Z-value", DateTime.Parse("03/01/2000"), 5);
-            AddRow(rows, columnMetadata, 1, "Y-value", DateTime.Parse("02/01/2000"), 6);
-            AddRow(rows, columnMetadata, 1, "X-value", DateTime.Parse("01/01/2000"), 7);
-            AddRow(rows, columnMetadata, 1, "X-value", DateTime.Parse("04/01/2000"), 8);
-            AddRow(rows, columnMetadata, 1, "X-value", DateTime.Parse("04/01/2000"), 4);
+            AddRow(rows, columnMetadata, 0, "Z-value", DateTime.Parse("2000-03-01"), 5);
+            AddRow(rows, columnMetadata, 1, "Y-value", DateTime.Parse("2000-02-01"), 6);
+            AddRow(rows, columnMetadata, 1, "X-value", DateTime.Parse("2000-01-01"), 7);
+            AddRow(rows, columnMetadata, 1, "X-value", DateTime.Parse("2000-04-01"), 8);
+            AddRow(rows, columnMetadata, 1, "X-value", DateTime.Parse("2000-04-01"), 4);
 
             _param.Value = rows;
 
@@ -110,12 +97,12 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
                 new SqlMetaData("", SqlDbType.Int, false, true, SortOrder.Ascending, 1),
             };
 
-            AddRow(rows, columnMetadata, 6, "Z-value", DateTime.Parse("01/01/2000"), 1);
-            AddRow(rows, columnMetadata, 6, "Z-value", DateTime.Parse("01/01/2000"), 2);
-            AddRow(rows, columnMetadata, 6, "Y-value", DateTime.Parse("01/01/2000"), 3);
-            AddRow(rows, columnMetadata, 6, "Y-value", DateTime.Parse("02/01/2000"), 3);
-            AddRow(rows, columnMetadata, 5, "X-value", DateTime.Parse("03/01/2000"), 3);
-            AddRow(rows, columnMetadata, 4, "X-value", DateTime.Parse("01/01/2000"), 3);
+            AddRow(rows, columnMetadata, 6, "Z-value", DateTime.Parse("2000-01-01"), 1);
+            AddRow(rows, columnMetadata, 6, "Z-value", DateTime.Parse("2000-01-01"), 2);
+            AddRow(rows, columnMetadata, 6, "Y-value", DateTime.Parse("2000-01-01"), 3);
+            AddRow(rows, columnMetadata, 6, "Y-value", DateTime.Parse("2000-02-01"), 3);
+            AddRow(rows, columnMetadata, 5, "X-value", DateTime.Parse("2000-03-01"), 3);
+            AddRow(rows, columnMetadata, 4, "X-value", DateTime.Parse("2000-01-01"), 3);
 
             _param.Value = rows;
 
