@@ -4,6 +4,7 @@
 
 using System.Data;
 using Microsoft.Data.SqlClient.ManualTesting.Tests;
+using Microsoft.Data.SqlClient.Tests.Common.Fixtures.DatabaseObjects;
 using Xunit;
 
 namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
@@ -24,7 +25,6 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
         {
             string srcConstr = DataTestUtility.TCPConnectionString;
             string dstConstr = DataTestUtility.TCPConnectionString;
-            string dstTable = DataTestUtility.GetShortName("SqlBulkCopyTest_CopyWithEvent", false);
             DataSet dataset;
             SqlDataAdapter adapter;
             DataTable datatable;
@@ -35,10 +35,8 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
             {
                 dstConn.Open();
 
-                try
+                using (Table dstTable = new(dstConn, nameof(CopyWithEvent), "(orderid int, customerid nchar(5), rdate datetime, freight money, shipname nvarchar(40))"))
                 {
-                    Helpers.TryExecute(dstCmd, "create table " + dstTable + " (orderid int, customerid nchar(5), rdate datetime, freight money, shipname nvarchar(40))");
-
                     using (SqlConnection srcConn = new SqlConnection(srcConstr))
                     using (SqlCommand srcCmd = new SqlCommand("select top 100 * from orders", srcConn))
                     {
@@ -60,7 +58,7 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
 
                         bulkcopy.SqlRowsCopied += new SqlRowsCopiedEventHandler(OnRowCopied);
 
-                        bulkcopy.DestinationTableName = dstTable;
+                        bulkcopy.DestinationTableName = dstTable.Name;
                         bulkcopy.NotifyAfter = 50;
 
                         SqlBulkCopyColumnMappingCollection ColumnMappings = bulkcopy.ColumnMappings;
@@ -74,11 +72,7 @@ namespace Microsoft.Data.SqlClient.ManualTests.BulkCopy
                         bulkcopy.WriteToServer(rows);
                         bulkcopy.SqlRowsCopied -= new SqlRowsCopiedEventHandler(OnRowCopied);
                     }
-                    Helpers.VerifyResults(dstConn, dstTable, 5, 100);
-                }
-                finally
-                {
-                    Helpers.TryExecute(dstCmd, "drop table " + dstTable);
+                    Helpers.VerifyResults(dstConn, dstTable.Name, 5, 100);
                 }
             }
         }
