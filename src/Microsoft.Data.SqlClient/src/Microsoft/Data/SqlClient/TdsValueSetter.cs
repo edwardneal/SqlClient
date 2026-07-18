@@ -96,6 +96,7 @@ namespace Microsoft.Data.SqlClient
                         break;
                     case SqlDbType.Udt:
                     case SqlDbType.Xml:
+                    case SqlDbTypeExtensions.Json:
                         Debug.Fail("PLP-only types shouldn't get to this point. Type: " + _metaData.SqlDbType);
                         break;
                     case SqlDbType.Variant:
@@ -396,9 +397,23 @@ namespace Microsoft.Data.SqlClient
             else if (_isPlp)
             {
                 // Send the string as a complete PLP chunk.
-                _stateObj.Parser.WriteLong(length * ADP.CharSize, _stateObj);  // PLP total length
-                _stateObj.Parser.WriteInt(length * ADP.CharSize, _stateObj);   // Chunk length
-                _stateObj.Parser.WriteString(value, length, offset, _stateObj);  // Data
+
+                // JSON values must be written using the UTF8 encoding. Other PLP chunks follow the
+                // connection's default encoding.
+                if (_metaData.SqlDbType is SqlDbTypeExtensions.Json)
+                {
+                    int byteCount = TdsEnums.Utf8EncodingWithoutBom.GetByteCount(value, offset, length);
+
+                    _stateObj.Parser.WriteLong(byteCount, _stateObj);
+                    _stateObj.Parser.WriteInt(byteCount, _stateObj);
+                    _stateObj.Parser.WriteEncodingChar(value, length, offset, TdsEnums.Utf8EncodingWithoutBom, _stateObj);
+                }
+                else
+                {
+                    _stateObj.Parser.WriteLong(length * ADP.CharSize, _stateObj);  // PLP total length
+                    _stateObj.Parser.WriteInt(length * ADP.CharSize, _stateObj);   // Chunk length
+                    _stateObj.Parser.WriteString(value, length, offset, _stateObj);  // Data
+                }
                 if (length != 0)
                 {
                     _stateObj.Parser.WriteInt(TdsEnums.SQL_PLP_CHUNK_TERMINATOR, _stateObj); // Terminator

@@ -101,6 +101,7 @@ namespace Microsoft.Data.SqlClient.Server
             /*Time*/     { _,    _,    _,     _,     _,     _,     _,     _,     _,     _,     _,      _,     _,    _,     _,    X,    _, },
             /*DTime2*/   { _,    _,    _,     _,     _,     _,     _,     _,     _,     _,     _,      X,     _,    _,     _,    _,    _, },
             /*DTOffset*/ { _,    _,    _,     _,     _,     _,     _,     _,     _,     _,     _,      _,     _,    _,     _,    _,    X, },
+            /*JSON*/     { _,    _,    _,     _,     X,     _,     _,     _,     _,     _,     _,      _,     _,    _,     _,    _,    _, },
         };
         
         internal static bool IsSetterAccessValid(SmiMetaData metaData, SmiXetterTypeCode xetterType)

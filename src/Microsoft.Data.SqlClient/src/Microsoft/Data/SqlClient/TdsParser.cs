@@ -88,7 +88,6 @@ namespace Microsoft.Data.SqlClient
 
         private int _defaultLCID;
 
-        private static readonly Encoding s_utf8EncodingWithoutBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
         internal Encoding _defaultEncoding = null;                  // for sql character data
 
         private static EncryptionOptions s_sniSupportedEncryptionOption = TdsParserStateObjectFactory.Singleton.EncryptionOptions;
@@ -3224,7 +3223,7 @@ namespace Microsoft.Data.SqlClient
                             // UTF8 collation
                             if (env._newCollation.IsUTF8)
                             {
-                                _defaultEncoding = s_utf8EncodingWithoutBom;
+                                _defaultEncoding = TdsEnums.Utf8EncodingWithoutBom;
                             }
                             else
                             {
@@ -4839,7 +4838,7 @@ namespace Microsoft.Data.SqlClient
 
                 if (rec.collation.IsUTF8)
                 { // UTF8 collation
-                    rec.encoding = s_utf8EncodingWithoutBom;
+                    rec.encoding = TdsEnums.Utf8EncodingWithoutBom;
                 }
                 else
                 {
@@ -5644,7 +5643,7 @@ namespace Microsoft.Data.SqlClient
 
                 if (col.collation.IsUTF8)
                 { // UTF8 collation
-                    col.encoding = s_utf8EncodingWithoutBom;
+                    col.encoding = TdsEnums.Utf8EncodingWithoutBom;
                 }
                 else
                 {
@@ -6544,7 +6543,7 @@ namespace Microsoft.Data.SqlClient
                     break;
 
                 case TdsEnums.SQLJSON:
-                    encoding = s_utf8EncodingWithoutBom;
+                    encoding = TdsEnums.Utf8EncodingWithoutBom;
                     string jsonStringValue;
                     result = stateObj.TryReadStringWithEncoding(length, encoding, isPlp, out jsonStringValue);
                     if (result != TdsOperationStatus.Done)
@@ -8585,7 +8584,7 @@ namespace Microsoft.Data.SqlClient
             return encoding.GetBytes(s, offset, numChars);
         }
 
-        private Task WriteEncodingChar(string s, int numChars, int offset, Encoding encoding, TdsParserStateObject stateObj, bool canAccumulate = true)
+        internal Task WriteEncodingChar(string s, int numChars, int offset, Encoding encoding, TdsParserStateObject stateObj, bool canAccumulate = true)
         {
             // if hitting 7.0 server, encoding will be null in metadata for columns or return values since
             // 7.0 has no support for multiple code pages in data - single code page support only
@@ -11802,7 +11801,7 @@ namespace Microsoft.Data.SqlClient
                     // Replace encoding if it is UTF8
                     if (metadata.collation.IsUTF8)
                     {
-                        _defaultEncoding = s_utf8EncodingWithoutBom;
+                        _defaultEncoding = TdsEnums.Utf8EncodingWithoutBom;
                     }
 
                     _defaultCollation = metadata.collation;

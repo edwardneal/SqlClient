@@ -4,6 +4,7 @@
 
 using System;
 using System.Data;
+using System.Text;
 using Microsoft.Data.Common.ConnectionString;
 
 namespace Microsoft.Data.SqlClient
@@ -15,6 +16,8 @@ namespace Microsoft.Data.SqlClient
         // internal tdsparser constants
         public static readonly decimal SQL_SMALL_MONEY_MIN = new(-214748.3648);
         public static readonly decimal SQL_SMALL_MONEY_MAX = new(214748.3647);
+
+        public static readonly Encoding Utf8EncodingWithoutBom = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
 #if NETFRAMEWORK
         // sql debugging constants, sdci is the structure passed in

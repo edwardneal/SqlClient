@@ -468,6 +468,13 @@ namespace Microsoft.Data.SqlClient.Server
                         }
 
                         break;
+                    case SqlDbTypeExtensions.Json:
+                        if (value.GetType() == typeof(SqlJson))
+                        {
+                            extendedCode = ExtendedClrTypeCode.Json;
+                        }
+
+                        break;
                     case SqlDbType.Structured:
                         if (isMultiValued)
                         {
