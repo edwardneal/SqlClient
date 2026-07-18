@@ -11235,6 +11235,9 @@ namespace Microsoft.Data.SqlClient
                     stateObj.WriteByte(TdsEnums.SQLDATETIMEOFFSET);
                     stateObj.WriteByte(metaData.Scale);
                     break;
+                case SqlDbTypeExtensions.Json:
+                    stateObj.WriteByte(TdsEnums.SQLJSON);
+                    break;
                 default:
                     Debug.Fail("Unknown SqlDbType should have been caught earlier!");
                     break;
