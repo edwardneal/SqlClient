@@ -10,6 +10,7 @@ using System.Data.SqlTypes;
 using System.Diagnostics;
 using System.Globalization;
 using Microsoft.Data.Common;
+using Microsoft.Data.SqlTypes;
 
 namespace Microsoft.Data.SqlClient.Server
 {
@@ -79,6 +80,7 @@ namespace Microsoft.Data.SqlClient.Server
             SqlDbType.Date,                 // System.DateOnly
             SqlDbType.Time,                 // System.TimeOnly  
 #endif
+            SqlDbTypeExtensions.Json,       // Microsoft.Data.SqlTypes.SqlJson
         };
 
 
@@ -140,6 +142,7 @@ namespace Microsoft.Data.SqlClient.Server
                 { typeof(IEnumerable<SqlDataRecord>), ExtendedClrTypeCode.IEnumerableOfSqlDataRecord },
                 { typeof(TimeSpan), ExtendedClrTypeCode.TimeSpan },
                 { typeof(DateTimeOffset), ExtendedClrTypeCode.DateTimeOffset },
+                { typeof(SqlJson), ExtendedClrTypeCode.Json },
 #if NET
                 { typeof(DateOnly), ExtendedClrTypeCode.DateOnly },
                 { typeof(TimeOnly), ExtendedClrTypeCode.TimeOnly },

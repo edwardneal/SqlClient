@@ -53,6 +53,7 @@ namespace Microsoft.Data.SqlClient.Server
         DateOnly,                   // System.DateOnly
         TimeOnly,                   // System.TimeOnly
 #endif
+        Json,                       // Microsoft.Data.SqlTypes.SqlJson
         Stream,                     // System.IO.Stream
         TextReader,                 // System.IO.TextReader
         XmlReader,                  // System.Xml.XmlReader

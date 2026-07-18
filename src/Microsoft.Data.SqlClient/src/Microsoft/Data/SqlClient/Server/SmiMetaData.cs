@@ -110,6 +110,7 @@ namespace Microsoft.Data.SqlClient.Server
         internal static readonly SmiMetaData DefaultTime = new SmiMetaData(SqlDbType.Time, 5, 0, 7, SqlCompareOptions.None);     // SqlDbType.Time
         internal static readonly SmiMetaData DefaultDateTime2 = new SmiMetaData(SqlDbType.DateTime2, 8, 0, 7, SqlCompareOptions.None);     // SqlDbType.DateTime2
         internal static readonly SmiMetaData DefaultDateTimeOffset = new SmiMetaData(SqlDbType.DateTimeOffset, 10, 0, 7, SqlCompareOptions.None);     // SqlDbType.DateTimeOffset
+        internal static readonly SmiMetaData DefaultJson = new SmiMetaData(SqlDbTypeExtensions.Json, UnlimitedMaxLengthIndicator, 0, 0, DefaultStringCompareOptions);// SqlDbType.Xml
         // No default for generic UDT
 
         internal static SmiMetaData DefaultNVarChar =>
@@ -261,6 +262,7 @@ namespace Microsoft.Data.SqlClient.Server
                 case SqlDbType.Variant:
                 case SqlDbType.Xml:
                 case SqlDbType.Date:
+                case SqlDbTypeExtensions.Json:
                     break;
                 case SqlDbType.Binary:
                 case SqlDbType.VarBinary:
@@ -395,7 +397,7 @@ namespace Microsoft.Data.SqlClient.Server
         {
             // Hole in SqlDbTypes between Xml and Udt for non-WinFS scenarios.
             return (SqlDbType.BigInt <= dbType && SqlDbType.Xml >= dbType) ||
-                    (SqlDbType.Udt <= dbType && SqlDbType.DateTimeOffset >= dbType);
+                    (SqlDbType.Udt <= dbType && SqlDbTypeExtensions.Json >= dbType);
         }
 
         // Only correct access point for defaults per SqlDbType.
@@ -470,6 +472,7 @@ namespace Microsoft.Data.SqlClient.Server
                 DefaultTime,                   // SqlDbType.Time
                 DefaultDateTime2,              // SqlDbType.DateTime2
                 DefaultDateTimeOffset,         // SqlDbType.DateTimeOffset
+                DefaultJson,                   // SqlDbType.Json
             };
 
         // static array of type names ordered by corresponding SqlDbType.
