@@ -373,5 +373,43 @@ namespace Microsoft.Data.SqlClient.ManualTesting.Tests
             spCommand.ExecuteNonQuery();
             Assert.Equal(JsonDataString, (string)outputParam.Value);
         }
+
+        [ConditionalFact(typeof(DataTestUtility), nameof(DataTestUtility.IsJsonSupported))]
+        public void TestJsonInsideUserDefinedType()
+        {
+            // Arrange: lay out the SQL objects and the parameter values needed in order to perform the test
+            using SqlConnection conn = new(DataTestUtility.TCPConnectionString);
+            using UserDefinedType jsonUdt = new(conn, nameof(TestJsonInsideUserDefinedType), "TABLE (JsonColumn json)");
+            using StoredProcedure countRecordsProcedure = new(conn, nameof(TestJsonInsideUserDefinedType), $@"
+    @JsonCollection {jsonUdt.Name} READONLY
+AS
+BEGIN
+    SELECT COUNT(1) FROM @JsonCollection
+END;");
+
+            using DataTable paramValue = new()
+            {
+                Columns =
+                {
+                    new DataColumn("JsonColumn", typeof(SqlJson))
+                }
+            };
+
+            for (int i = 0; i < 5; i++)
+            {
+                paramValue.Rows.Add(new SqlJson(JsonDataString));
+            }
+
+            // Act: execute the stored procedure
+            using SqlCommand spCommand = new(countRecordsProcedure.Name, conn) { CommandType = CommandType.Text };
+            SqlParameter udtParameter = new("@JsonCollection", SqlDbType.Structured) { Value = paramValue, TypeName = jsonUdt.Name };
+
+            spCommand.Parameters.Add(udtParameter);
+
+            int valueCount = (int)spCommand.ExecuteScalar();
+
+            // Assert: the return value should be equal to the number of rows in the source table
+            Assert.Equal(paramValue.Rows.Count, valueCount);
+        }
     }
 }
